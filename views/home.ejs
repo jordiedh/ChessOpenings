@@ -1,26 +1,31 @@
 <%- include('../views/header', {user: user}); %>
 
+<!-- Basic Home page with information and buttons, may make it better at a later point. -->
 <div style="color:white; margin-top: 50px;">
     <center>
-        
-            <h1>Welcome to Chess Openings!</h1>
-            <h4>All over YouTube there are an absolute ton of resources on openings, but it becomes hard to practice, once it's all said and done.</h4>
-            <h4>This site aims to allow you to practice your openings, whether it be the main line, or alternative, punishing opponent mistakes, or setting traps.</h4>
-            <br>
-            <h4>There are a ton of pre-existing openings, but you can also create your own.</h4>
-            <br>
-            <% if(user == null) {%>
-            <h3>Register an account to get started!</h3>
-            <div style="display: inline-block">
-                <a class="btn btn-primary btn-lg" href="/login" role="button" style="margin-right: 50px; ">Login</a>
-                <a class="btn btn-danger btn-lg" href="/register" role="button">Register</a>
-            </div>
+
+        <h1>Welcome to Chess Openings!</h1>
+        <h4>All over YouTube there are an absolute ton of resources on openings, but it becomes hard to practice, once
+            it's all said and done.</h4>
+        <h4>This site aims to allow you to practice your openings, whether it be the main line, or alternative,
+            punishing opponent mistakes, or setting traps.</h4>
+        <br>
+        <h4>There are a ton of pre-existing openings, but you can also create your own.</h4>
+        <br>
+        <!-- If logged in, display login/register pages. Otherwise, show practice/create openings. -->
+        <% if(user == null) {%>
+        <h3>Register an account to get started!</h3>
+        <div style="display: inline-block">
+            <a class="btn btn-primary btn-lg" href="/login" role="button" style="margin-right: 50px; ">Login</a>
+            <a class="btn btn-danger btn-lg" href="/register" role="button">Register</a>
+        </div>
         <% } else {%>
-            <h3>Choose one of the following options to get started!</h3>
-            <div style="display: inline-block">
-                <a class="btn btn-primary btn-lg" href="/practice" role="button" style="margin-right: 50px; ">Practice Openings</a>
-                <a class="btn btn-danger btn-lg" href="/lab" role="button">Create Openings</a>
-            </div>
+        <h3>Choose one of the following options to get started!</h3>
+        <div style="display: inline-block">
+            <a class="btn btn-primary btn-lg" href="/practice" role="button" style="margin-right: 50px; ">Practice
+                Openings</a>
+            <a class="btn btn-danger btn-lg" href="/lab" role="button">Create Openings</a>
+        </div>
         <%}%>
     </center>
 </div>
