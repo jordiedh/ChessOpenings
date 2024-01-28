@@ -1,4 +1,6 @@
 <%- include('../views/header', {user: user}); %>
+
+<!-- Old login page I designed, broken in new version of bootstrap so I put in Bootstrap 4.3.1 as login.css -->
 <link rel="stylesheet" href="/css/login.css">
 
 <section class="ftco-section">
@@ -14,6 +16,7 @@
     <div class="w-100">
     </div>
     </div>
+    <!-- If error=? in the url, display an error message. -->
     <% if(error && error > 0 && error < 7) {%>
     <div class="alert alert-danger" role="alert">
         <%if(error == 1) {%>

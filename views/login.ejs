@@ -1,26 +1,27 @@
 <%- include('../views/header', {user: user}); %>
 
+<!-- Old login page I designed, broken in new version of bootstrap so I put in Bootstrap 4.3.1 as login.css -->
 <link rel="stylesheet" href="/css/login.css">
 
 <section class="ftco-section">
     <div class="container">
-<div class="row justify-content-center">
-    <div class="col-md-7 col-lg-5">
-    <div class="wrap">
-    <div class="login-wrap p-4 p-md-5" style="background-color: #262422;">
-    <div class="d-flex">
-    <div class="w-100">
-    <h3 class="mb-4 white-text">Sign In</h3>
-    </div>
-    <div class="w-100">
-    </div>
-    </div>
-    <% if(messages.error) {%>
-        
-        <div class="alert alert-danger" role="alert" style="margin-bottom: 30px;">
-            <%= messages.error %>
-        </div>
-        <%}%>
+        <div class="row justify-content-center">
+            <div class="col-md-7 col-lg-5">
+                <div class="wrap">
+                    <div class="login-wrap p-4 p-md-5" style="background-color: #262422;">
+                        <div class="d-flex">
+                            <div class="w-100">
+                                <h3 class="mb-4 white-text">Sign In</h3>
+                            </div>
+                            <div class="w-100">
+                            </div>
+                        </div>
+                        <% if(messages.error) {%>
+
+                        <div class="alert alert-danger" role="alert" style="margin-bottom: 30px;">
+                            <%= messages.error %>
+                        </div>
+                        <%}%>
     <form action="/login" method="POST" class="signin-form">
     <div class="form-group mt-3">
     <input type="text" class="form-control input-dark" name="email" required>

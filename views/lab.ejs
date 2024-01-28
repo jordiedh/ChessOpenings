@@ -1,5 +1,7 @@
 <%- include('../views/header', {user: user}); %>
 
+<!-- This is the lab page without any parameters, which displays a list
+of openings to edit, or create a new one. -->
 <div style="margin-top: 50px; color: white;">
     <center>
         <h1>Please select an option next to an opening, or press New to start a new opening.</h1>
@@ -12,6 +14,7 @@
                   </svg></button></a></td></td></tr>
               </thead>
               <tbody>
+                <!-- Will display a lock next to public openings, which are only visible to admins. -->
                 <% if(userOpenings.length > 0) {%>
                     <% for(var i = 0; i < userOpenings.length; i++) {%>
                         <tr>
