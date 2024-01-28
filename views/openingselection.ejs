@@ -1,0 +1,50 @@
+<%- include('../views/header', {user: user}); %>
+
+<div style="margin-top: 50px; color: white;">
+    <center>
+        <h1>Please select an opening.</h1>
+        <div style="">
+            <table class="table table-dark table-borderless" id="movesTable" style="width: 500px; margin-left:30px; margin-right: 20px; max-height: 600px; overflow-y: scroll;">
+              <thead>
+                <tr><td align="center" colspan="3">Site Openings</td></tr>
+              </thead>
+              <tbody>
+                <% if(siteOpenings.length > 0) {%>
+                    <% for(var i = 0; i < siteOpenings.length; i++) {%>
+                        <tr>
+                            <td><a href="/practice?opening=<%=siteOpenings[i].id%>" style="text-decoration: none;"><%=siteOpenings[i].name%></a></td>
+                        </tr>
+                    <%}%>
+                <%} else {%>
+                    <tr>
+                        <td>The site has no pre-made openings. (Something wrong has happened)</td>
+                    </tr>
+                <%}%>
+              </tbody>
+            </table>
+          </div>
+          <div style="">
+            <table class="table table-dark table-borderless" id="movesTable" style="width: 500px; margin-left:30px; margin-right: 20px; max-height: 600px; overflow-y: scroll;">
+              <thead>
+                <tr><td align="center" colspan="3">Your Custom Openings</td></tr>
+              </thead>
+              <tbody>
+                <% if(userOpenings.length > 0) {%>
+                    <% for(var i = 0; i < userOpenings.length; i++) {%>
+                        <tr>
+                            <td><a href="/practice?opening=<%=userOpenings[i].id%>" style="text-decoration: none;"><%=userOpenings[i].name%></a></td>
+                        </tr>
+                    <%}%>
+                <%} else {%>
+                    <tr>
+                        <td>You have not made any openings yet.</td>
+                    </tr>
+                <%}%>
+              </tbody>
+            </table>
+          </div>
+    </center>
+</div>
+
+</body>
+</html>

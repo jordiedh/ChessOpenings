@@ -1,0 +1,49 @@
+/*!
+ * Bootstrap v4.3.1 (https://getbootstrap.com/)
+ * Copyright 2011-2019 The Bootstrap Authors
+ * Copyright 2011-2019 Twitter, Inc.
+ * Licensed under MIT (https://github.com/twbs/bootstrap/blob/master/LICENSE)
+ */
+
+ table.fixed {table-layout:fixed; width:90px;}/*Setting the table width is important!*/
+table.fixed td {overflow-x:hidden;}/*Hide text outside the cell.*/
+table.fixed td:nth-of-type(1) {width:10px;}/*Setting the width of column 1.*/
+table.fixed td:nth-of-type(2) {width:50px;}/*Setting the width of column 2.*/
+table.fixed td:nth-of-type(3) {width:300px;}/*Setting the width of column 3.*/
+
+.header {
+  display: table-caption;
+  border: 1px solid #ccc;
+}
+
+ ::-webkit-scrollbar {
+  width: 20px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #a8bbbf;
+}
+
+::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #d6dee1;
+  border-radius: 20px;
+  border: 6px solid transparent;
+  background-clip: content-box;
+}
+
+.navbar-dark-custom {
+  background-color: #262422;
+}
+
+.white-text {
+  color: white;
+}
+
+input.input-dark, textarea { 
+  background-color: #3c3a37;
+  color: #3c3a37;
+ }

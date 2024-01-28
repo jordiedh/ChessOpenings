@@ -1,0 +1,84 @@
+<%- include('../views/header', {user: user}); %>
+<link rel="stylesheet" href="/css/login.css">
+
+<section class="ftco-section">
+    <div class="container">
+<div class="row justify-content-center">
+    <div class="col-md-7 col-lg-5">
+    <div class="wrap">
+    <div class="login-wrap p-4 p-md-5">
+    <div class="d-flex">
+    <div class="w-100">
+    <h3 class="mb-4">Register</h3>
+    </div>
+    <div class="w-100">
+    </div>
+    </div>
+    <% if(error && error > 0 && error < 7) {%>
+    <div class="alert alert-danger" role="alert">
+        <%if(error == 1) {%>
+            Email taken   
+        <%} else if(error == 2) {%>
+            Username taken
+        <%} else if(error == 3) {%>
+            Email invalid
+        <%} else if(error == 4) {%>
+            Username contains invalid characters
+        <%} else if(error == 5) {%>
+            Password must be 8 characters minimum
+        <%} else if(error == 6) {%>
+            Password contains invalid characters
+        <%} else if(error == 7) {%>
+            Username cannot be more than 20 characters
+        <%}%>
+    </div>
+    <% } %>
+    <form action="/register" method="POST" class="signin-form">
+    <div class="form-group mt-3">
+    <input type="text" class="form-control" name="email" required>
+    <label class="form-control-placeholder" for="email">Email</label>
+    </div>
+    <div class="form-group" style="margin-top: 30px;">
+        <input type="text" class="form-control" name="username" required>
+        <label class="form-control-placeholder" for="username">Username</label>
+        </div>
+    <div class="form-group" style="margin-top: 30px;">
+    <input id="password" type="password" class="form-control" name="password" required>
+    <label class="form-control-placeholder" for="password">Password</label>
+    <span toggle="#password" class="fa fa-fw fa-eye field-icon toggle-password"></span>
+    
+    </div>
+    <small id="passwordHelpBlock" class="form-text text-muted" style="margin-bottom: 30px;">
+        Your password must be atleast 8 characters long.
+      </small>
+    <div class="form-group">
+    <button type="submit" class="form-control btn btn-primary rounded submit px-3">Register</button>
+    </div>
+    </form>
+    <p class="text-center">Already have an account? <a style="text-decoration: none; color: #01d28e;" data-toggle="tab" href="/login">Login</a></p>
+    </div>
+    </div>
+    </div>
+    </div></section>
+
+    <script>
+        (function($) {
+
+"use strict";
+
+$(".toggle-password").click(function() {
+
+$(this).toggleClass("fa-eye fa-eye-slash");
+var input = $($(this).attr("toggle"));
+if (input.attr("type") == "password") {
+input.attr("type", "text");
+} else {
+input.attr("type", "password");
+}
+});
+
+})(jQuery);
+    </script>
+
+</body>
+</html>
