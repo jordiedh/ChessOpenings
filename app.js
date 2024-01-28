@@ -242,7 +242,7 @@ app.get('/lab', checkAuthenticated, async (req, res) => {
 
 		/*
 		ERROR CODES
-		
+
 		1
 			Opening does not exist
 		2
@@ -253,10 +253,14 @@ app.get('/lab', checkAuthenticated, async (req, res) => {
 		*/
 		var opening = null;
 		opening = await db.get("SELECT * FROM openings WHERE id = ?", [selectedOpening])
+
+		// If opening does not exist, no need to check for ID is number.
 		if (opening == null) {
 			res.redirect('/openingselection?error=1');
 			return;
 		}
+
+		// If the opening doesn't belong to the user (or is public and user is not admin), error!
 		if ((opening.shared == 1 && user.permissionLevel < 100) || opening.userId != user.id) {
 			res.redirect('/openingselection?error=2');
 			return;
@@ -274,24 +278,33 @@ app.get('/practice', checkAuthenticated, async (req, res) => {
 	if (req.session.passport) {
 		if (req.session.passport.user) user = await findUserById(req.session.passport.user)
 	}
+
 	if (user != null) updateLastSeen(user.id)
+
 	var openingId = req.query.opening;
+
+	// If opening not selected
 	if (openingId == null) {
 		res.redirect("/openingselection?error=3")
 		return;
 	}
-	let opening = await db.get(`SELECT * FROM openings WHERE id=?`, [openingId]).catch(err => {
-		console.error(err)
-	})
+
+	let opening = await db.get(`SELECT * FROM openings WHERE id=?`, [openingId])
+
+	// If opening seleted isn't found
 	if (opening == null) {
 		res.redirect("/openingselection?error=3")
 		return;
 	}
+
 	let moves = await db.all(`SELECT * FROM moves WHERE openingId=?`, [openingId])
+
+	// If opening has no moves added
 	if (moves.length == 0) {
 		res.redirect("/openingselection?error=3")
 		return;
 	}
+
 	res.render('practice', {
 		Chess: Chess,
 		user: user,
@@ -308,6 +321,7 @@ app.get('/openingselection', checkAuthenticated, async (req, res) => {
 	}
 	if (user != null) updateLastSeen(user.id)
 
+	// Separate objects so its easier to organise them into lists, rather than using the html to sort
 	let siteOpenings = await db.all("SELECT * FROM openings WHERE active = 1 AND shared = 1")
 	let userOpenings = await db.all("SELECT * FROM openings WHERE active = 1 AND userId = " + user.id)
 
@@ -320,11 +334,17 @@ app.get('/openingselection', checkAuthenticated, async (req, res) => {
 })
 
 app.get('/login', checkNotAuthenticated, async (req, res) => {
+
 	var user = null;
+
 	if (req.session.passport) {
+
 		if (req.session.passport.user) user = await findUserById(req.session.passport.user)
+
 	}
+
 	if (user != null) updateLastSeen(user.id)
+
 	res.render('login', {
 		user: user
 	})
@@ -332,11 +352,17 @@ app.get('/login', checkNotAuthenticated, async (req, res) => {
 })
 
 app.get('/register', checkNotAuthenticated, async (req, res) => {
+
 	var user = null;
+
 	if (req.session.passport) {
+
 		if (req.session.passport.user) user = await findUserById(req.session.passport.user)
+
 	}
+
 	if (user != null) updateLastSeen(user.id)
+
 	res.render('register', {
 		user: user,
 		error: req.query.error
@@ -346,6 +372,7 @@ app.get('/register', checkNotAuthenticated, async (req, res) => {
 
 app.post('/register', checkNotAuthenticated, async (req, res) => {
 	/*
+	ERROR CODES
 		1
             Email taken   
         2
@@ -360,89 +387,152 @@ app.post('/register', checkNotAuthenticated, async (req, res) => {
             Password contains invalid characters
 		7
 			Username too long
+		8
+			Unexpected error
 	*/
 
+	// Regex string to check if email is valid
 	var regexEmail = /(?:(?:\r\n)?[ \t])*(?:(?:(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*))*@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*|(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)*\<(?:(?:\r\n)?[ \t])*(?:@(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*(?:,@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*)*:(?:(?:\r\n)?[ \t])*)?(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*))*@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*\>(?:(?:\r\n)?[ \t])*)|(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)*:(?:(?:\r\n)?[ \t])*(?:(?:(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*))*@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*|(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)*\<(?:(?:\r\n)?[ \t])*(?:@(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*(?:,@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*)*:(?:(?:\r\n)?[ \t])*)?(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*))*@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*\>(?:(?:\r\n)?[ \t])*)(?:,\s*(?:(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*))*@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*|(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)*\<(?:(?:\r\n)?[ \t])*(?:@(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*(?:,@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*)*:(?:(?:\r\n)?[ \t])*)?(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*))*@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*\>(?:(?:\r\n)?[ \t])*))*)?;\s*)/
 
+	// Test the regex against the email
 	if (!(regexEmail.test(req.body.email))) {
+
 		res.redirect('/register?error=3')
 		return;
+
 	}
 
-
+	// Check that username only contains letters and numbers
 	if (!(/^[A-Za-z0-9]*$/.test(req.body.username))) {
+
 		res.redirect('/register?error=4')
 		return;
+
 	}
 
+	// Search to check username isn't already used
 	let resultUsername = await db.get(`SELECT * FROM users WHERE username = ?`, [req.body.username])
+
 	if (resultUsername != null) {
+
 		res.redirect('/register?error=2')
 		return;
+
 	}
+
+	// Search to check email isn't already used
 	let resultEmail = await db.get(`SELECT * FROM users WHERE email = ?`, [req.body.email])
+
 	if (resultEmail != null) {
+
 		res.redirect('/register?error=1')
 		return;
+
 	}
+
+	// Check password is atleast 8 characters
 	if (req.body.password.length < 8) {
+
 		res.redirect('/register?error=5')
 		return;
+
 	}
+
+	// Check username isn't longer than 20 characters
 	if (req.body.username.length > 20) {
+
 		res.redirect('/register?error=7')
 		return;
+
 	}
+
+	// Use bcrypt to hash password, then insert user into database
 	try {
+
 		const hashedPassword = await bcrypt.hash(req.body.password, 10)
+
 		db.run(`INSERT INTO users (username, password, email, permissionLevel, joinedAt, lastSeen) VALUES (?, ?, ?, 1, ?, ?)`, req.body.username, hashedPassword, req.body.email, Date.now(), Date.now())
 		res.redirect('/login')
+
 	} catch (e) {
-		res.redirect('/register')
+
+		res.redirect('/register?error=8')
 		console.log(e)
+
 	}
 
 })
 
+// The delete route is used to logout (delete session essentially!)
 app.delete('/logout', (req, res) => {
+
 	req.logOut(function (err) {
+
 		if (err) {
+
 			return next(err)
+
 		}
+
 		res.redirect('/')
+
 	})
+
 })
 
+// The login post uses the passport authenticate rather than a standard setup
 app.post('/login', checkNotAuthenticated, passport.authenticate('local', {
+
 	successRedirect: "/",
 	failureRedirect: "/login",
 	failureFlash: true
+
 }))
 
+// This function can be passed for routing to only allow logged in users to access the page
 function checkAuthenticated(req, res, next) {
+
 	if (req.session.passport) {
+
 		if (findUserById(req.session.passport.user)) return next()
+
 	}
 
 	res.redirect('/login')
+
 }
 
+// This function can be passed for routing to only allow not logged in users to access the page
 function checkNotAuthenticated(req, res, next) {
+
 	if (req.isAuthenticated()) {
-		return res.redirect('/')
+
+		return res.redirect('/');
+
 	}
-	next()
+
+	next();
+
 }
 
+// Format a epoch time int to dd/mm/yyyy hh:mm
 function formatDate(date) {
+
 	var hours = date.getHours();
 	var minutes = date.getMinutes();
+
 	var ampm = hours >= 12 ? 'pm' : 'am';
+
 	hours = hours % 12;
 	hours = hours ? hours : 12; // the hour '0' should be '12'
+
 	minutes = minutes < 10 ? '0' + minutes : minutes;
+
 	var strTime = hours + ':' + minutes + ' ' + ampm;
+
 	return date.getDate() + "/" + (date.getMonth() + 1) + "/" + date.getFullYear() + "  " + strTime;
+	
 }
 
+// Express to listen on the specified port
 app.listen(port, () => console.log(`Server started on port ${port}.`))
