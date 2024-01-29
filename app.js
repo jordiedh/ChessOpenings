@@ -370,6 +370,61 @@ app.get('/register', checkNotAuthenticated, async (req, res) => {
 
 })
 
+app.get('/contact', checkAuthenticated, async (req, res) => {
+
+	var user = null;
+
+	if (req.session.passport) {
+
+		if (req.session.passport.user) user = await findUserById(req.session.passport.user)
+
+	}
+
+	if (user != null) updateLastSeen(user.id)
+
+	if(req.query.completedform != null) {
+		res.render('completedform', {
+			user: user
+		})
+		return;
+	}
+
+	res.render('contact', {
+		user: user,
+		error: req.query.error // If form is not complete properly
+	})
+
+})
+
+
+
+app.post('/contact', checkAuthenticated, async (req, res) => {
+
+	var user = null;
+
+	if (req.session.passport) {
+
+		if (req.session.passport.user) user = await findUserById(req.session.passport.user)
+
+	}
+
+	if (user != null) updateLastSeen(user.id)
+
+	// Insert message into database with myself as the receiver
+	try {
+
+		db.run(`INSERT INTO messages (sender, receiver, subject, body) VALUES (?, ?, ?, ?)`, user.id, 1, req.body.subject, req.body.body)
+		res.redirect('/contact?completedform=1')
+
+	} catch (e) {
+
+		res.redirect('/contact?error=1')
+		console.log(e)
+
+	}
+
+})
+
 app.post('/register', checkNotAuthenticated, async (req, res) => {
 	/*
 	ERROR CODES
@@ -531,7 +586,7 @@ function formatDate(date) {
 	var strTime = hours + ':' + minutes + ' ' + ampm;
 
 	return date.getDate() + "/" + (date.getMonth() + 1) + "/" + date.getFullYear() + "  " + strTime;
-	
+
 }
 
 // Express to listen on the specified port
