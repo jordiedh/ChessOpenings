@@ -413,7 +413,7 @@ app.post('/contact', checkAuthenticated, async (req, res) => {
 	// Insert message into database with myself as the receiver
 	try {
 
-		db.run(`INSERT INTO messages (sender, receiver, subject, body) VALUES (?, ?, ?, ?)`, user.id, 1, req.body.subject, req.body.body)
+		db.run(`INSERT INTO messages (sender, receiver, subject, body, sentTime) VALUES (?, ?, ?, ?, ?)`, user.id, 1, req.body.subject, req.body.body, Date.now())
 		res.redirect('/contact?completedform=1')
 
 	} catch (e) {
