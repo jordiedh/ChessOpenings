@@ -1,0 +1,35 @@
+<%- include('../views/header', {user: user}); %>
+
+
+
+<center><h1 class="white-text">Message</h1>
+  <div class="white-text" style="width: 50%">
+    <table class="white-text table table-dark" style="margin-top: 25px;">
+        <tbody>
+<%
+
+for(let i = 0; i < messages.length; i++) {%>
+        <tr><td style="text-align: center; vertical-align: middle; width: 30px;"></td><td>From: <%if(messages[i].senderPermissionLevel >= 2) {%><img style="height:13px; margin-right: 4px; margin-top: -2px;"
+            src="/img/premium.png" /><%}%><%if(messages[i].senderPermissionLevel == 100) {%><img
+            style="height:13px; margin-right: 4px; margin-top: -2px;"
+            src="/img/admin.png" /><%}%><span <%if(messages[i].senderPermissionLevel == 2) {%>style="color:
+          #2c45ff"<%}%><%if(messages[i].senderPermissionLevel == 100) {%>style="color: red"<%}%>><%= messages[i].senderUsername %></span>
+            <br><b><%=messages[i].subject%></b><br><%=messages[i].body%></td></tr>
+<%}%>
+    </tbody>
+    </table>
+</div>
+<form action="/reply" method="POST" class="signin-form" style="width: 50%">
+    <textarea style="min-height: 200px;" placeholder="Enter reply.." id="body" class="form-control input-dark" name="body" required></textarea>
+    <label class="form-control-placeholder" for="body">Body</label>
+    <input type="hidden" id="messageId" name="messageId" value="<%=messages[0].id%>">
+    <input type="hidden" id="receiver" name="receiver" value="<%=messages[0].receiver%>">
+    <input type="hidden" id="sender" name="sender" value="<%=messages[0].sender%>">
+    <input type="hidden" id="subject" name="subject" value="RE: <%=messages[0].subject%>">
+    <div class="form-group">
+    <button type="submit" class="form-control btn btn-primary rounded submit px-3">Send Message</button>
+    </div>
+    </form>
+</center>
+
+</body></html>

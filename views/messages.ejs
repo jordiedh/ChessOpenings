@@ -1,0 +1,39 @@
+<%- include('../views/header', {user: user}); %>
+
+
+
+<center><h1 class="white-text">Messages</h1><h6 class="white-text">This section is used for communication for the <a href="/contact" style="text-decoration: none;">Contact Admin Page</a>, you will also see announcements here.</h6><div class="white-text" style="width: 50%">
+    <table class="white-text table table-hover table-dark" style="margin-top: 25px; width: 50%">
+        <tbody>
+<%let replies = {}
+function truncateText(text, length) {
+    if (text.length <= length) {
+      return text;
+    }
+
+  return text.substr(0, length).trim() + '\u2026'
+}
+for(let i = 0; i < messages.length; i++) {
+  if(messages[i].replyTo != null) {
+    if(replies[messages[i].replyTo]) replies[messages[i].replyTo] = replies[messages[i].replyTo] + 1
+    else replies[messages[i].replyTo] = 1
+  }
+}
+
+for(let i = 0; i < messages.length; i++) {%>
+    <%if(messages[i].replyTo == null) {%>
+        <tr><td style="text-align: center; vertical-align: middle; width: 30px;"><%if(unreadMessages.indexOf(messages[i].id) != -1) {%><span style="color: #00a2ff;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-exclamation-circle-fill" viewBox="0 0 16 16">
+  <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0M8 4a.905.905 0 0 0-.9.995l.35 3.507a.552.552 0 0 0 1.1 0l.35-3.507A.905.905 0 0 0 8 4m.002 6a1 1 0 1 0 0 2 1 1 0 0 0 0-2"/>
+</svg></span><%}%></td><td><a href="/messages?message=<%=messages[i].id%>" style="color: white; text-decoration: none">From: <%if(messages[i].senderPermissionLevel >= 2) {%><img style="height:13px; margin-right: 4px; margin-top: -2px;"
+            src="/img/premium.png" /><%}%><%if(messages[i].senderPermissionLevel == 100) {%><img
+            style="height:13px; margin-right: 4px; margin-top: -2px;"
+            src="/img/admin.png" /><%}%><span <%if(messages[i].senderPermissionLevel == 2) {%>style="color:
+          #2c45ff"<%}%><%if(messages[i].senderPermissionLevel == 100) {%>style="color: red"<%}%>><%= messages[i].senderUsername %></span>
+            <br><b><%=messages[i].subject%></b><br><%=truncateText(messages[i].body, 20)%><span style="color: gray; margin-left: 5px; font-style: italic">Click to read..</span><%if(replies[messages[i].id] != null){%><br><br><span style="color: <%if(unreadMessages.indexOf(messages[i].id) != -1) {%>#00a2ff<%} else {%>gray<%}%>;">Replies: <%=replies[messages[i].id]%></span><%}%></a></td></tr>
+    <%}%>
+<%}%>
+    </tbody>
+    </table>
+</div></center>
+
+</body></html>

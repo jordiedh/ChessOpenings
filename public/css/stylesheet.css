@@ -5,6 +5,16 @@
  * Licensed under MIT (https://github.com/twbs/bootstrap/blob/master/LICENSE)
  */
 
+ .notification {
+  margin-left: 5px;
+  background-color: #fa3e3e;
+  border-radius: 2px;
+  color: white;
+ 
+  padding: 1px 3px;
+  font-size: 14px;
+ }
+
  table.fixed {table-layout:fixed; width:90px;}/*Setting the table width is important!*/
 table.fixed td {overflow-x:hidden;}/*Hide text outside the cell.*/
 table.fixed td:nth-of-type(1) {width:10px;}/*Setting the width of column 1.*/
