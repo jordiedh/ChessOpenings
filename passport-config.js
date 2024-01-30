@@ -14,7 +14,6 @@ export default function initalize(passport, getUserByEmail, getUserById) {
         try {
             if(await bcrypt.compare(password, user.password)) {
 
-                console.log("Success")
                 return done(null, user)
 
             } else {

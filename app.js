@@ -7,17 +7,11 @@ if (process.env.NODE_ENV !== "production") {
 import express from 'express';
 import path from 'path';
 import bcrypt from 'bcrypt';
-import {
-	fileURLToPath
-} from 'url';
+import { fileURLToPath } from 'url';
 import bodyParser from 'body-parser';
 import sqlite3 from 'sqlite3';
-import {
-	open
-} from 'sqlite';
-import {
-	Chess
-} from 'chess.js';
+import { open } from 'sqlite';
+import { Chess } from 'chess.js';
 import passport from 'passport';
 import redis from 'redis';
 import RedisStore from 'connect-redis';
@@ -26,6 +20,7 @@ import flash from 'express-flash';
 import methodOverride from 'method-override';
 import cookieParser from 'cookie-parser';
 import initializePassport from './passport-config.js'
+
 // Initialise the passport configuration with methods find user by email/ID
 initializePassport(passport, email => findUserByEmail(email), id => findUserById(id))
 
@@ -69,6 +64,23 @@ async function findUserById(id) {
 		lastSeen: result.lastSeen
 	}
 
+}
+
+function findUserByIdNotAsync(id) {
+	db.get(`SELECT * FROM users WHERE id = ?`, [id]).then(result => {
+		if (result == null) {
+			return result;
+		}
+		return {
+			id: result.id,
+			username: result.username,
+			email: result.email,
+			password: result.password,
+			permissionLevel: result.permissionLevel,
+			joinedAt: result.joinedAt,
+			lastSeen: result.lastSeen
+		}
+	});
 }
 
 // Open redis client.
@@ -153,9 +165,12 @@ app.get('/', async (req, res) => {
 		if (req.session.passport.user) user = await findUserById(req.session.passport.user)
 	}
 	if (user != null) updateLastSeen(user.id)
+	
+	let unread = await getUnreadMessagesCount(user.id)
 
 	res.render('home', {
-		user: user
+		user: user,
+		unread: unread
 	})
 
 })
@@ -168,9 +183,11 @@ app.get('/preferences', checkAuthenticated, async (req, res) => {
 		if (req.session.passport.user) user = await findUserById(req.session.passport.user)
 	}
 	if (user != null) updateLastSeen(user.id)
+	let unread = await getUnreadMessagesCount(user.id)
 
 	res.render('preferences', {
-		user: user
+		user: user,
+		unread: unread
 	})
 
 })
@@ -181,6 +198,7 @@ app.get('/users', checkAuthenticated, async (req, res) => {
 		if (req.session.passport.user) user = await findUserById(req.session.passport.user)
 	}
 	if (user != null) updateLastSeen(user.id)
+	let unread = await getUnreadMessagesCount(user.id)
 
 	// Kick user off page if they're not an Admin.
 	// Redirect to 404 page once made?
@@ -193,6 +211,7 @@ app.get('/users', checkAuthenticated, async (req, res) => {
 
 	res.render('users', {
 		user: user,
+		unread: unread,
 		users: users,
 		formatDate: formatDate
 	})
@@ -207,9 +226,12 @@ app.get('/account', checkAuthenticated, async (req, res) => {
 
 	// Update last seen if the user exists.
 	if (user != null) updateLastSeen(user.id)
+	
+	let unread = await getUnreadMessagesCount(user.id)
 
 	res.render('account', {
-		user: user
+		user: user,
+		unread: unread
 	})
 
 })
@@ -233,6 +255,7 @@ app.get('/lab', checkAuthenticated, async (req, res) => {
 
 		res.render('lab', {
 			user: user,
+			unread: unread,
 			userOpenings: userOpenings
 		})
 
@@ -268,6 +291,7 @@ app.get('/lab', checkAuthenticated, async (req, res) => {
 
 		res.render('labedit', {
 			user: user,
+			unread: unread,
 			userOpenings: userOpenings
 		})
 	}
@@ -280,6 +304,8 @@ app.get('/practice', checkAuthenticated, async (req, res) => {
 	}
 
 	if (user != null) updateLastSeen(user.id)
+
+	let unread = await getUnreadMessagesCount(user.id)
 
 	var openingId = req.query.opening;
 
@@ -308,6 +334,7 @@ app.get('/practice', checkAuthenticated, async (req, res) => {
 	res.render('practice', {
 		Chess: Chess,
 		user: user,
+		unread: unread,
 		opening: opening,
 		moves: moves
 	})
@@ -320,6 +347,8 @@ app.get('/openingselection', checkAuthenticated, async (req, res) => {
 		if (req.session.passport.user) user = await findUserById(req.session.passport.user)
 	}
 	if (user != null) updateLastSeen(user.id)
+	
+	let unread = await getUnreadMessagesCount(user.id)
 
 	// Separate objects so its easier to organise them into lists, rather than using the html to sort
 	let siteOpenings = await db.all("SELECT * FROM openings WHERE active = 1 AND shared = 1")
@@ -327,6 +356,7 @@ app.get('/openingselection', checkAuthenticated, async (req, res) => {
 
 	res.render('openingselection', {
 		user: user,
+		unread: unread,
 		siteOpenings: siteOpenings,
 		userOpenings: userOpenings
 	})
@@ -344,14 +374,88 @@ app.get('/login', checkNotAuthenticated, async (req, res) => {
 	}
 
 	if (user != null) updateLastSeen(user.id)
+	
+	let unread = await getUnreadMessagesCount(user.id)
 
 	res.render('login', {
-		user: user
+		
+		user: user,
+		unread: unread
+
 	})
 
 })
 
-app.get('/register', checkNotAuthenticated, async (req, res) => {
+app.get('/messages', checkAuthenticated, async (req, res) => {
+
+	var user = null;
+
+	if (req.session.passport) {
+
+		if (req.session.passport.user) user = await findUserById(req.session.passport.user)
+
+	}
+
+	if (user != null) updateLastSeen(user.id)
+	let unread = await getUnreadMessagesCount(user.id)
+
+	let unreadMessagesSQL = await db.all(`SELECT id, replyTo FROM messages WHERE id NOT IN (SELECT messageId FROM readReceipts WHERE userId=${user.id})`)
+	let unreadMessages = []
+	unreadMessagesSQL.forEach(entry => {
+
+		if(entry.replyTo != null) unreadMessages.push(entry.replyTo)
+		else unreadMessages.push(entry.id)
+
+	})
+	let scope = req.query.message;
+
+	// If they are just looking at the messages overview
+	if(scope == null) {
+
+		let messages = await db.all(`SELECT messages.*, users.username AS senderUsername, users.permissionLevel AS senderPermissionLevel FROM messages LEFT JOIN users ON sender=users.id WHERE sender = ${user.id} OR receiver = ${user.id} OR receiver = "ALL" ORDER BY sentTime DESC`);
+
+		res.render('messages', {
+			
+			user: user,
+			unread: unread,
+			messages: messages,
+			unreadMessages: unreadMessages
+
+		})
+	} else {
+
+		let messages = await db.all(`SELECT messages.*, users.username AS senderUsername, users.permissionLevel AS senderPermissionLevel FROM messages LEFT JOIN users ON sender=users.id WHERE (receiver = ${user.id} OR receiver="ALL" OR sender = ${user.id}) AND (messages.id=? OR replyTo=?)`, scope, scope);
+		
+		// If message they tried to view doesn't exist
+		if(messages.length == 0) {
+			
+			res.redirect("/messages"); 
+			return; 
+
+		}
+
+		messages.forEach(message => {
+			db.run(`INSERT INTO readReceipts (messageId, userId) 
+			SELECT ?, ? WHERE NOT EXISTS 
+			(SELECT * FROM readReceipts WHERE messageId=? AND userId=?)`, 
+			message.id, user.id, message.id, user.id)
+		})
+		
+		let unread = await getUnreadMessagesCount(user.id)
+
+		res.render('thread', {
+
+			user: user,
+			unread: unread,
+			messages: messages
+			
+		})
+
+	}
+
+})
+
+app.get('/thread', checkAuthenticated, async (req, res) => {
 
 	var user = null;
 
@@ -365,6 +469,7 @@ app.get('/register', checkNotAuthenticated, async (req, res) => {
 
 	res.render('register', {
 		user: user,
+		unread: getUnreadMessagesCount(user.id),
 		error: req.query.error
 	})
 
@@ -384,13 +489,15 @@ app.get('/contact', checkAuthenticated, async (req, res) => {
 
 	if(req.query.completedform != null) {
 		res.render('completedform', {
-			user: user
+			user: user,
+unread: getUnreadMessagesCount(user.id)
 		})
 		return;
 	}
 
 	res.render('contact', {
 		user: user,
+unread: getUnreadMessagesCount(user.id),
 		error: req.query.error // If form is not complete properly
 	})
 
@@ -413,12 +520,45 @@ app.post('/contact', checkAuthenticated, async (req, res) => {
 	// Insert message into database with myself as the receiver
 	try {
 
-		db.run(`INSERT INTO messages (sender, receiver, subject, body) VALUES (?, ?, ?, ?)`, user.id, 1, req.body.subject, req.body.body)
+		db.run(`INSERT INTO messages (sender, receiver, subject, body, sentTime) VALUES (?, ?, ?, ?, ?)`, user.id, 1, req.body.subject, req.body.body, Date.now())
 		res.redirect('/contact?completedform=1')
 
 	} catch (e) {
 
 		res.redirect('/contact?error=1')
+		console.log(e)
+
+	}
+
+})
+
+app.post('/reply', checkAuthenticated, async (req, res) => {
+
+	var user = null;
+
+	if (req.session.passport) {
+
+		if (req.session.passport.user) user = await findUserById(req.session.passport.user)
+
+	}
+
+	if (user != null) updateLastSeen(user.id)
+
+	let originalMessage = req.body.messageId;
+	let receiver = req.body.receiver;
+	if(receiver == user.id) receiver = req.body.sender;
+	let subject = req.body.subject
+	let reply = req.body.body;
+
+	// Insert message as a reply
+	try {
+
+		db.run(`INSERT INTO messages (sender, receiver, subject, body, sentTime, replyTo) VALUES (?, ?, ?, ?, ?, ?)`, user.id, receiver, subject, reply, Date.now(), originalMessage)
+		res.redirect('/messages?message=' + originalMessage)
+
+	} catch (e) {
+
+		res.redirect('/messages?message=' + originalMessage)
 		console.log(e)
 
 	}
@@ -447,7 +587,7 @@ app.post('/register', checkNotAuthenticated, async (req, res) => {
 	*/
 
 	// Regex string to check if email is valid
-	var regexEmail = /(?:(?:\r\n)?[ \t])*(?:(?:(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*))*@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*|(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)*\<(?:(?:\r\n)?[ \t])*(?:@(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*(?:,@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*)*:(?:(?:\r\n)?[ \t])*)?(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*))*@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*\>(?:(?:\r\n)?[ \t])*)|(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)*:(?:(?:\r\n)?[ \t])*(?:(?:(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*))*@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*|(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)*\<(?:(?:\r\n)?[ \t])*(?:@(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*(?:,@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*)*:(?:(?:\r\n)?[ \t])*)?(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*))*@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*\>(?:(?:\r\n)?[ \t])*)(?:,\s*(?:(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*))*@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*|(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)*\<(?:(?:\r\n)?[ \t])*(?:@(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*(?:,@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*)*:(?:(?:\r\n)?[ \t])*)?(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r\n)?[ \t]))*"(?:(?:\r\n)?[ \t])*))*@(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*)(?:\.(?:(?:\r\n)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r\n)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r\n)?[ \t])*))*\>(?:(?:\r\n)?[ \t])*))*)?;\s*)/
+	var regexEmail = /(?:(?:\r)?[ \t])*(?:(?:(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r)?[ \t]))*"(?:(?:\r)?[ \t])*)(?:\.(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r)?[ \t]))*"(?:(?:\r)?[ \t])*))*@(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r)?[ \t])*)(?:\.(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r)?[ \t])*))*|(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r)?[ \t]))*"(?:(?:\r)?[ \t])*)*\<(?:(?:\r)?[ \t])*(?:@(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r)?[ \t])*)(?:\.(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r)?[ \t])*))*(?:,@(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r)?[ \t])*)(?:\.(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r)?[ \t])*))*)*:(?:(?:\r)?[ \t])*)?(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r)?[ \t]))*"(?:(?:\r)?[ \t])*)(?:\.(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r)?[ \t]))*"(?:(?:\r)?[ \t])*))*@(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r)?[ \t])*)(?:\.(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r)?[ \t])*))*\>(?:(?:\r)?[ \t])*)|(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r)?[ \t]))*"(?:(?:\r)?[ \t])*)*:(?:(?:\r)?[ \t])*(?:(?:(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r)?[ \t]))*"(?:(?:\r)?[ \t])*)(?:\.(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r)?[ \t]))*"(?:(?:\r)?[ \t])*))*@(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r)?[ \t])*)(?:\.(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r)?[ \t])*))*|(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r)?[ \t]))*"(?:(?:\r)?[ \t])*)*\<(?:(?:\r)?[ \t])*(?:@(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r)?[ \t])*)(?:\.(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r)?[ \t])*))*(?:,@(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r)?[ \t])*)(?:\.(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r)?[ \t])*))*)*:(?:(?:\r)?[ \t])*)?(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r)?[ \t]))*"(?:(?:\r)?[ \t])*)(?:\.(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r)?[ \t]))*"(?:(?:\r)?[ \t])*))*@(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r)?[ \t])*)(?:\.(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r)?[ \t])*))*\>(?:(?:\r)?[ \t])*)(?:,\s*(?:(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r)?[ \t]))*"(?:(?:\r)?[ \t])*)(?:\.(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r)?[ \t]))*"(?:(?:\r)?[ \t])*))*@(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r)?[ \t])*)(?:\.(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r)?[ \t])*))*|(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r)?[ \t]))*"(?:(?:\r)?[ \t])*)*\<(?:(?:\r)?[ \t])*(?:@(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r)?[ \t])*)(?:\.(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r)?[ \t])*))*(?:,@(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r)?[ \t])*)(?:\.(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r)?[ \t])*))*)*:(?:(?:\r)?[ \t])*)?(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r)?[ \t]))*"(?:(?:\r)?[ \t])*)(?:\.(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|"(?:[^\"\r\\]|\\.|(?:(?:\r)?[ \t]))*"(?:(?:\r)?[ \t])*))*@(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r)?[ \t])*)(?:\.(?:(?:\r)?[ \t])*(?:[^()<>@,;:\\".\[\] \000-\031]+(?:(?:(?:\r)?[ \t])+|\Z|(?=[\["()<>@,;:\\".\[\]]))|\[([^\[\]\r\\]|\\.)*\](?:(?:\r)?[ \t])*))*\>(?:(?:\r)?[ \t])*))*)?;\s*)/
 
 	// Test the regex against the email
 	if (!(regexEmail.test(req.body.email))) {
@@ -567,6 +707,14 @@ function checkNotAuthenticated(req, res, next) {
 	}
 
 	next();
+
+}
+
+// Get number of unread messages
+async function getUnreadMessagesCount(userId) {
+
+	let result = await db.all(`SELECT * FROM messages AS m WHERE id NOT IN (SELECT messageId FROM readReceipts AS rr) AND (m.receiver = ${userId} OR m.receiver = "ALL")`);	
+	return result.length;
 
 }
 
