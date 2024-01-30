@@ -3,9 +3,10 @@
 
 
 <center><h1 class="white-text">Messages</h1><h6 class="white-text">This section is used for communication for the <a href="/contact" style="text-decoration: none;">Contact Admin Page</a>, you will also see announcements here.</h6><div class="white-text" style="width: 50%">
-    <table class="white-text table table-hover table-dark" style="margin-top: 25px; width: 50%">
+    <table class="white-text table table-hover table-dark" style="margin-top: 25px; width: 70%">
         <tbody>
 <%let replies = {}
+let replyTimes = {}
 function truncateText(text, length) {
     if (text.length <= length) {
       return text;
@@ -15,8 +16,15 @@ function truncateText(text, length) {
 }
 for(let i = 0; i < messages.length; i++) {
   if(messages[i].replyTo != null) {
-    if(replies[messages[i].replyTo]) replies[messages[i].replyTo] = replies[messages[i].replyTo] + 1
-    else replies[messages[i].replyTo] = 1
+    if(replies[messages[i].replyTo])
+      replies[messages[i].replyTo] = replies[messages[i].replyTo] + 1
+    else 
+      replies[messages[i].replyTo] = 1
+    if(replyTimes[messages[i].replyTo]) {
+      if(messages[i].sentTime > replyTimes[messages[i].replyTo]) replyTimes[messages[i].replyTo] = messages[i].sentTime
+    } else {
+      replyTimes[messages[i].replyTo] = messages[i].sentTime
+    }
   }
 }
 
@@ -29,7 +37,12 @@ for(let i = 0; i < messages.length; i++) {%>
             style="height:13px; margin-right: 4px; margin-top: -2px;"
             src="/img/admin.png" /><%}%><span <%if(messages[i].senderPermissionLevel == 2) {%>style="color:
           #2c45ff"<%}%><%if(messages[i].senderPermissionLevel == 100) {%>style="color: red"<%}%>><%= messages[i].senderUsername %></span>
-            <br><b><%=messages[i].subject%></b><br><%=truncateText(messages[i].body, 20)%><span style="color: gray; margin-left: 5px; font-style: italic">Click to read..</span><%if(replies[messages[i].id] != null){%><br><br><span style="color: <%if(unreadMessages.indexOf(messages[i].id) != -1) {%>#00a2ff<%} else {%>gray<%}%>;">Replies: <%=replies[messages[i].id]%></span><%}%></a></td></tr>
+            <br><b><%=messages[i].subject%></b><br><%=truncateText(messages[i].body, 20)%><span style="color: gray; margin-left: 5px; font-style: italic">Click to read..</span><%if(replies[messages[i].id] != null){%><br><br><span style="color: <%if(unreadMessages.indexOf(messages[i].id) != -1) {%>#00a2ff<%} else {%>gray<%}%>;">Replies: <%=replies[messages[i].id]%></span><%}%></a></td>
+            <td>
+              
+              <%if(replyTimes[messages[i].id]){%><%=formatDate(new Date(replyTimes[messages[i].id]))%>
+              <%} else {%><%=formatDate(new Date(messages[i].sentTime))%><%}%>
+            </td></tr>
     <%}%>
 <%}%>
     </tbody>
