@@ -419,7 +419,8 @@ app.get('/messages', checkAuthenticated, async (req, res) => {
 			user: user,
 			unread: unread,
 			messages: messages,
-			unreadMessages: unreadMessages
+			unreadMessages: unreadMessages,
+			formatDate: formatDate
 
 		})
 	} else {
@@ -447,7 +448,8 @@ app.get('/messages', checkAuthenticated, async (req, res) => {
 
 			user: user,
 			unread: unread,
-			messages: messages
+			messages: messages,
+			formatDate: formatDate
 			
 		})
 
@@ -458,6 +460,7 @@ app.get('/messages', checkAuthenticated, async (req, res) => {
 app.get('/thread', checkAuthenticated, async (req, res) => {
 
 	var user = null;
+	let unread = await getUnreadMessagesCount(user.id)
 
 	if (req.session.passport) {
 
@@ -469,7 +472,7 @@ app.get('/thread', checkAuthenticated, async (req, res) => {
 
 	res.render('register', {
 		user: user,
-		unread: getUnreadMessagesCount(user.id),
+		unread: unread,
 		error: req.query.error
 	})
 
@@ -486,18 +489,19 @@ app.get('/contact', checkAuthenticated, async (req, res) => {
 	}
 
 	if (user != null) updateLastSeen(user.id)
+	let unread = await getUnreadMessagesCount(user.id)
 
 	if(req.query.completedform != null) {
 		res.render('completedform', {
 			user: user,
-unread: getUnreadMessagesCount(user.id)
+			unread: unread
 		})
 		return;
 	}
 
 	res.render('contact', {
 		user: user,
-unread: getUnreadMessagesCount(user.id),
+		unread: unread,
 		error: req.query.error // If form is not complete properly
 	})
 

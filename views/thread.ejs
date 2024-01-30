@@ -3,7 +3,7 @@
 
 
 <center><h1 class="white-text">Message</h1>
-  <div class="white-text" style="width: 50%">
+  <div class="white-text" style="width: 70%">
     <table class="white-text table table-dark" style="margin-top: 25px;">
         <tbody>
 <%
@@ -14,14 +14,18 @@ for(let i = 0; i < messages.length; i++) {%>
             style="height:13px; margin-right: 4px; margin-top: -2px;"
             src="/img/admin.png" /><%}%><span <%if(messages[i].senderPermissionLevel == 2) {%>style="color:
           #2c45ff"<%}%><%if(messages[i].senderPermissionLevel == 100) {%>style="color: red"<%}%>><%= messages[i].senderUsername %></span>
-            <br><b><%=messages[i].subject%></b><br><%=messages[i].body%></td></tr>
+            <br><b><%=messages[i].subject%></b><br><%=messages[i].body%></td>
+            <td style="width: 15%">
+              
+              
+              <%=formatDate(new Date(messages[i].sentTime))%>
+            </td></tr>
 <%}%>
     </tbody>
     </table>
 </div>
-<form action="/reply" method="POST" class="signin-form" style="width: 50%">
+<form action="/reply" method="POST" class="signin-form" style="width: 70%">
     <textarea style="min-height: 200px;" placeholder="Enter reply.." id="body" class="form-control input-dark" name="body" required></textarea>
-    <label class="form-control-placeholder" for="body">Body</label>
     <input type="hidden" id="messageId" name="messageId" value="<%=messages[0].id%>">
     <input type="hidden" id="receiver" name="receiver" value="<%=messages[0].receiver%>">
     <input type="hidden" id="sender" name="sender" value="<%=messages[0].sender%>">
