@@ -5,6 +5,7 @@ if (process.env.NODE_ENV !== "production") {
 
 // Import all libraries.
 import express from 'express';
+import nodemailer from 'nodemailer';
 import path from 'path';
 import bcrypt from 'bcrypt';
 import { fileURLToPath } from 'url';
@@ -20,11 +21,34 @@ import flash from 'express-flash';
 import methodOverride from 'method-override';
 import cookieParser from 'cookie-parser';
 import initializePassport from './passport-config.js'
+import crypto from 'crypto';
 
 // Initialise the passport configuration with methods find user by email/ID
 initializePassport(passport, email => findUserByEmail(email), id => findUserById(id))
 
 var db;
+
+// SMTP details
+const transporter = nodemailer.createTransport({
+	host: process.env.host,
+	port: process.env.port,
+	secure: false,
+	auth: {
+		user: process.env.user,
+		pass: process.env.pass
+	}
+})
+
+// Send email with link to activate account
+async function sendActivationLink(email, code) {
+	console.log("Sending verification email")
+	let info = await transporter.sendMail({
+		from: "Chess Openings <jhchessopenings@gmail.com>",
+		to: email,
+		subject: "Verify Your Account",
+		text: "Hi, please follow the below link to confirm registration of your account on Chess Openings.\n\nhttp://localhost:8000/verify?code=" + code + "\n\nIf you did not request this code, you can ignore this email."
+	})
+}
 
 // Search database for user and return null if not found, or a JSON of the users db stored information if found.
 // One function for email:
@@ -41,7 +65,9 @@ async function findUserByEmail(email) {
 		password: result.password,
 		permissionLevel: result.permissionLevel,
 		joinedAt: result.joinedAt,
-		lastSeen: result.lastSeen
+		lastSeen: result.lastSeen,
+		isVerified: result.isVerified,
+		verifyCode: result.verifyCode
 	}
 
 
@@ -61,7 +87,9 @@ async function findUserById(id) {
 		password: result.password,
 		permissionLevel: result.permissionLevel,
 		joinedAt: result.joinedAt,
-		lastSeen: result.lastSeen
+		lastSeen: result.lastSeen,
+		isVerified: result.isVerified,
+		verifyCode: result.verifyCode
 	}
 
 }
@@ -78,7 +106,9 @@ function findUserByIdNotAsync(id) {
 			password: result.password,
 			permissionLevel: result.permissionLevel,
 			joinedAt: result.joinedAt,
-			lastSeen: result.lastSeen
+			lastSeen: result.lastSeen,
+			isVerified: result.isVerified,
+			verifyCode: result.verifyCode
 		}
 	});
 }
@@ -142,7 +172,7 @@ init();
 
 // initialise function
 function init() {
-
+	
 }
 
 // Update the database to display their last seen time, probably better off storing this locally and pushing
@@ -236,12 +266,36 @@ app.get('/account', checkAuthenticated, async (req, res) => {
 
 })
 
+app.get('/unverified', async (req, res) => {
+	var user = null;
+	if (req.session.passport) {
+		if (req.session.passport.user) user = await findUserById(req.session.passport.user)
+	}
+
+	if(user == null) {
+		res.redirect('/register'); 
+		return; 
+	}
+
+	// Update last seen if the user exists.
+	if (user != null) updateLastSeen(user.id)
+	
+	let unread = await getUnreadMessagesCount(user.id)
+
+	res.render('unverified', {
+		user: user,
+		unread: unread
+	})
+
+})
+
 app.get('/lab', checkAuthenticated, async (req, res) => {
 	var user = null;
 	if (req.session.passport) {
 		if (req.session.passport.user) user = await findUserById(req.session.passport.user)
 	}
 	if (user != null) updateLastSeen(user.id);
+	let unread = await getUnreadMessagesCount(user.id)
 
 	
 	let selectedOpening = req.query.opening;
@@ -478,7 +532,7 @@ app.get('/thread', checkAuthenticated, async (req, res) => {
 
 })
 
-app.get('/contact', checkAuthenticated, async (req, res) => {
+app.get('/verify', async (req, res) => {
 
 	var user = null;
 
@@ -488,6 +542,41 @@ app.get('/contact', checkAuthenticated, async (req, res) => {
 
 	}
 
+	if(user == null) {
+		res.redirect("/")
+		return;
+	}
+
+	if (user != null) updateLastSeen(user.id)
+	let unread = await getUnreadMessagesCount(user.id)
+
+	if(req.query.code == user.verifyCode) {
+		db.run(`UPDATE users SET isVerified = 1 WHERE id = ${user.id}`)
+	} else {
+		res.render('unverified');
+		return;
+	}
+
+	res.render('verified', {
+		user: user,
+		unread: unread
+	})
+
+})
+
+app.get('/contact', async (req, res) => {
+
+	var user = null;
+
+	if (req.session.passport) {
+
+		if (req.session.passport.user) user = await findUserById(req.session.passport.user)
+
+	}
+	if(user == null) {
+		res.redirect('/');
+		return;
+	}
 	if (user != null) updateLastSeen(user.id)
 	let unread = await getUnreadMessagesCount(user.id)
 
@@ -566,6 +655,24 @@ app.post('/reply', checkAuthenticated, async (req, res) => {
 		console.log(e)
 
 	}
+
+})
+
+app.post('/sendverify', async (req, res) => {
+
+	var user = null;
+
+	if (req.session.passport) {
+
+		if (req.session.passport.user) user = await findUserById(req.session.passport.user)
+
+	}
+
+	if (user != null) updateLastSeen(user.id)
+
+	sendActivationLink(user.email, user.verifyCode)
+
+	res.redirect("/")
 
 })
 
@@ -649,9 +756,11 @@ app.post('/register', checkNotAuthenticated, async (req, res) => {
 	try {
 
 		const hashedPassword = await bcrypt.hash(req.body.password, 10)
+		const randomCode = crypto.randomBytes(20).toString('hex');
 
-		db.run(`INSERT INTO users (username, password, email, permissionLevel, joinedAt, lastSeen) VALUES (?, ?, ?, 1, ?, ?)`, req.body.username, hashedPassword, req.body.email, Date.now(), Date.now())
-		res.redirect('/login')
+		db.run(`INSERT INTO users (username, password, email, permissionLevel, joinedAt, lastSeen, isVerified, verifyCode) VALUES (?, ?, ?, 1, ?, ?)`, req.body.username, hashedPassword, req.body.email, Date.now(), Date.now(), 0, randomCode)
+		sendActivationLink(req.body.email, randomCode)
+		res.redirect('/unverified')
 
 	} catch (e) {
 
@@ -689,11 +798,17 @@ app.post('/login', checkNotAuthenticated, passport.authenticate('local', {
 }))
 
 // This function can be passed for routing to only allow logged in users to access the page
-function checkAuthenticated(req, res, next) {
+async function checkAuthenticated(req, res, next) {
 
 	if (req.session.passport) {
-
-		if (findUserById(req.session.passport.user)) return next()
+		var user = await findUserById(req.session.passport.user)
+		if (user) {
+			if(user.isVerified == 0) {
+				res.redirect('/unverified')
+				return;
+			}
+			return next()
+		}
 
 	}
 
