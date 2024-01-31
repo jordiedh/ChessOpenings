@@ -133,7 +133,7 @@
                   <a class="dropdown-item" href="/messages">Messages <%if(unread != 0){%><span class="notification"><%=unread%></span><%}%></a>
                   <a class="dropdown-item" href="/preferences">Preferences</a>
                   <!-- Logout functionality not fully implemented, it is a "post method" so need to implement. -->
-                  <a class="dropdown-item" id="logout" href="/">Log Out</a>
+                  <a class="dropdown-item" id="logout" href="javascript:document.getElementById('logout-form').submit();">Log Out</a>
                 </li>
               </ul>
 
@@ -146,3 +146,5 @@
           </div>
         </div>
       </nav>
+
+      <form id="logout-form" style="display:none" action="/logout" method="POST"></form>
