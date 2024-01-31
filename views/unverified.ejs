@@ -1,0 +1,19 @@
+<%- include('../views/header', {user: user}); %>
+
+<div style="color:white; margin-top: 50px;"><center>
+    <h1>Your account is not verified.</h1>
+    <h3>Please check your emails and follow the verification link. <b>Please note, it may be in your spam folder.</b></h3>
+    <h5>If you need the email re-sent, please click the button below.</h5>
+
+    <form action="/sendverify" method="POST" class="signin-form" style="width: 15%">
+        <input type="hidden" id="user" name="user" value="<%=user.id%>">
+        <div class="form-group">
+        <button type="submit" class="form-control btn btn-primary rounded submit px-3">Resend Verification Email</button>
+        </div>
+        </form>
+
+        <h6 style="margin-top: 100px">If you are having trouble verifying, please let us know via the <a href="/contact" style="text-decoration: none;">Contact Page</a></h6>
+
+</center></div>
+
+</body></html>
