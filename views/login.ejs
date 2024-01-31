@@ -24,11 +24,11 @@
                         <%}%>
     <form action="/login" method="POST" class="signin-form">
     <div class="form-group mt-3">
-    <input type="text" class="form-control input-dark" name="email" required>
+    <input type="text" class="form-control input-dark" name="email" autocomplete="email" required>
     <label class="form-control-placeholder" for="email">Email</label>
     </div>
     <div class="form-group" style="margin-top: 30px;">
-    <input id="password" type="password" class="form-control input-dark" name="password" required>
+    <input id="password" type="password" class="form-control input-dark" autocomplete="password" name="password" required>
     <label class="form-control-placeholder" for="password">Password</label>
     <span toggle="#password" class="fa fa-fw fa-eye field-icon toggle-password"></span>
     </div>

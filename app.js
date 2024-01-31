@@ -308,7 +308,7 @@ app.get('/lab', checkAuthenticated, async (req, res) => {
 	
 	let selectedOpening = req.query.opening;
 
-	// Query openings for user to be able to edit.
+	// Query openings for user to be able edit.
 	// If perm level = Admin, it will show shared public ones too.
 	if (selectedOpening == null) {
 		var userOpenings = null;
@@ -451,6 +451,22 @@ app.get('/login', checkNotAuthenticated, async (req, res) => {
 
 })
 
+app.get('/register', checkNotAuthenticated, async (req, res) => {
+
+	let user = null;
+	let unread = 0;
+	let error = req.query.error;
+
+	res.render('register', {
+		
+		user: user,
+		unread: unread,
+		error: error
+
+	})
+
+})
+
 app.get('/messages', checkAuthenticated, async (req, res) => {
 
 	var user = null;
@@ -553,11 +569,6 @@ app.get('/verify', async (req, res) => {
 
 	}
 
-	if(user == null) {
-		res.redirect("/")
-		return;
-	}
-
 	let unread = 0;
 
 	if (user != null) {
@@ -565,10 +576,14 @@ app.get('/verify', async (req, res) => {
 		unread = await getUnreadMessagesCount(user.id)
 	}
 
-	if(req.query.code == user.verifyCode) {
-		db.run(`UPDATE users SET isVerified = 1 WHERE id = ${user.id}`)
+	let code = req.query.code;
+	if(code == null) res.redirect("/")
+	let userWithCode = await db.get(`SELECT * FROM users WHERE verifyCode = ?`, code)
+
+	if(userWithCode) {
+		db.run(`UPDATE users SET isVerified = 1 WHERE verifyCode = "${code}"`)
 	} else {
-		res.render('unverified');
+		res.render('/unverified');
 		return;
 	}
 
@@ -632,7 +647,7 @@ app.post('/contact', checkAuthenticated, async (req, res) => {
 	// Insert message into database with myself as the receiver
 	try {
 
-		db.run(`INSERT INTO messages (sender, receiver, subject, body, sentTime) VALUES (?, ?, ?, ?, ?)`, user.id, 1, req.body.subject, req.body.body, Date.now())
+		db.run(`INSERT INTO messages (sender, receiver, subject, body, sentTime) VALUES (?, ?, ?, ?, ?)`, [user.id, 1, req.body.subject, req.body.body, Date.now()])
 		res.redirect('/contact?completedform=1')
 
 	} catch (e) {
@@ -777,9 +792,10 @@ app.post('/register', checkNotAuthenticated, async (req, res) => {
 		const hashedPassword = await bcrypt.hash(req.body.password, 10)
 		const randomCode = crypto.randomBytes(20).toString('hex');
 
-		db.run(`INSERT INTO users (username, password, email, permissionLevel, joinedAt, lastSeen, isVerified, verifyCode) VALUES (?, ?, ?, 1, ?, ?)`, req.body.username, hashedPassword, req.body.email, Date.now(), Date.now(), 0, randomCode)
+		db.run(`INSERT INTO users (username, password, email, permissionLevel, joinedAt, lastSeen, isVerified, verifyCode) VALUES (?, ?, ?, 1, ?, ?, ?, ?)`, req.body.username, hashedPassword, req.body.email, Date.now(), Date.now(), 0, randomCode)
 		sendActivationLink(req.body.email, randomCode)
-		res.redirect('/unverified')
+		res.redirect('/login');
+		return;
 
 	} catch (e) {
 
