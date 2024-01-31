@@ -196,7 +196,12 @@ app.get('/', async (req, res) => {
 	}
 	if (user != null) updateLastSeen(user.id)
 	
-	let unread = await getUnreadMessagesCount(user.id)
+	let unread = 0;
+
+	if (user != null) {
+		updateLastSeen(user.id)
+		unread = await getUnreadMessagesCount(user.id)
+	}
 
 	res.render('home', {
 		user: user,
@@ -278,9 +283,12 @@ app.get('/unverified', async (req, res) => {
 	}
 
 	// Update last seen if the user exists.
-	if (user != null) updateLastSeen(user.id)
-	
-	let unread = await getUnreadMessagesCount(user.id)
+	let unread = 0;
+
+	if (user != null) {
+		updateLastSeen(user.id)
+		unread = await getUnreadMessagesCount(user.id)
+	}
 
 	res.render('unverified', {
 		user: user,
@@ -427,9 +435,12 @@ app.get('/login', checkNotAuthenticated, async (req, res) => {
 
 	}
 
-	if (user != null) updateLastSeen(user.id)
-	
-	let unread = await getUnreadMessagesCount(user.id)
+	let unread = 0;
+
+	if (user != null) {
+		updateLastSeen(user.id)
+		unread = await getUnreadMessagesCount(user.id)
+	}
 
 	res.render('login', {
 		
@@ -547,8 +558,12 @@ app.get('/verify', async (req, res) => {
 		return;
 	}
 
-	if (user != null) updateLastSeen(user.id)
-	let unread = await getUnreadMessagesCount(user.id)
+	let unread = 0;
+
+	if (user != null) {
+		updateLastSeen(user.id)
+		unread = await getUnreadMessagesCount(user.id)
+	}
 
 	if(req.query.code == user.verifyCode) {
 		db.run(`UPDATE users SET isVerified = 1 WHERE id = ${user.id}`)
@@ -577,8 +592,12 @@ app.get('/contact', async (req, res) => {
 		res.redirect('/');
 		return;
 	}
-	if (user != null) updateLastSeen(user.id)
-	let unread = await getUnreadMessagesCount(user.id)
+	let unread = 0;
+
+	if (user != null) {
+		updateLastSeen(user.id)
+		unread = await getUnreadMessagesCount(user.id)
+	}
 
 	if(req.query.completedform != null) {
 		res.render('completedform', {
@@ -772,7 +791,7 @@ app.post('/register', checkNotAuthenticated, async (req, res) => {
 })
 
 // The delete route is used to logout (delete session essentially!)
-app.delete('/logout', (req, res) => {
+app.post('/logout', (req, res) => {
 
 	req.logOut(function (err) {
 
