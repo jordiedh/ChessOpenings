@@ -8,21 +8,20 @@
                     <div class="login-wrap p-4 p-md-5" style="background-color: #262422;">
                         <div>
                             <div>
-                                <h3 class="white-text">Contact Form</h3>
-                                <h6 class="white-text">Send a message to the site admin, feature requests, bug reports, support requests, etc.</h6>
+                                <h3 class="white-text">Create New Opening</h3>
+                                <h6 class="white-text">Enter a name and then we can start making moves!</h6>
                             </div>
                         </div>
                         <% if(error) {%>
 
-                        <div class="alert alert-danger" role="alert" style="margin-bottom: 30px;">
-                            <%= error %>
-                        </div>
-                        <%}%>
-    <form action="/contact" method="POST" class="signin-form">
-    <textarea placeholder="Enter subject.." type="text" name="subject" class="form-control input-dark" required></textarea>
-    <textarea style="min-height: 200px; margin-top: 20px; margin-bottom: 20px;" placeholder="Enter message.." id="body" class="form-control input-dark" name="body" required></textarea>
+                            <div class="alert alert-danger" role="alert" style="margin-bottom: 30px;">
+                                You already have an opening with this name.
+                            </div>
+                            <%}%>
+    <form action="/labnew" method="POST" class="signin-form">
+    <textarea placeholder="Enter name" style="height: 30px; width: 400px;" type="text" name="name" class="form-control input-dark" required></textarea>
     <div class="form-group">
-    <button type="submit" class="form-control btn btn-primary rounded submit px-3">Send Message</button>
+    <button type="submit" class="form-control btn btn-primary rounded submit px-3" style="width: 148px; margin-top: 10px;">Create Opening</button>
     </div>
     </form></div>
     </div>

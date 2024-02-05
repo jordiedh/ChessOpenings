@@ -403,6 +403,64 @@ app.get('/practice', checkAuthenticated, async (req, res) => {
 
 })
 
+app.get('/labnew', checkAuthenticated, async (req, res) => {
+	var user = null;
+	if (req.session.passport) {
+		if (req.session.passport.user) user = await findUserById(req.session.passport.user)
+	}
+
+	if (user != null) updateLastSeen(user.id)
+
+	let unread = await getUnreadMessagesCount(user.id)
+
+	let error = req.query.error;
+
+	res.render('labnew', {
+		user: user,
+		unread: unread,
+		error: error
+	})
+
+})
+
+app.get('/labedit', checkAuthenticated, async (req, res) => {
+	var user = null;
+	if (req.session.passport) {
+		if (req.session.passport.user) user = await findUserById(req.session.passport.user)
+	}
+
+	if (user != null) updateLastSeen(user.id)
+
+	let unread = await getUnreadMessagesCount(user.id)
+
+	let error = req.query.error;
+	let opening = req.query.opening;
+	if(opening == null) {
+		res.redirect('/lab?error=10');
+		return;
+	}
+
+	let openingSQL = db.get(`SELECT * FROM openings WHERE id=?`, [opening]);
+
+	if(openingSQL == null) {
+		res.redirect('/lab?error=10');
+		return;
+	}
+
+	let movesSQL = db.all(`SELECT * FROM moves WHERE openingId=?`, [opening])
+
+	
+
+	res.render('labedit', {
+		user: user,
+		unread: unread,
+		error: error,
+		opening: openingSQL,
+		existingMoves: movesSQL
+	})
+
+})
+
 app.get('/openingselection', checkAuthenticated, async (req, res) => {
 	var user = null;
 	if (req.session.passport) {
@@ -632,6 +690,8 @@ app.get('/contact', async (req, res) => {
 
 
 
+
+
 app.post('/contact', checkAuthenticated, async (req, res) => {
 
 	var user = null;
@@ -692,7 +752,7 @@ app.post('/reply', checkAuthenticated, async (req, res) => {
 
 })
 
-app.post('/sendverify', async (req, res) => {
+app.post('/sendverify', checkAuthenticated, async (req, res) => {
 
 	var user = null;
 
@@ -707,6 +767,33 @@ app.post('/sendverify', async (req, res) => {
 	sendActivationLink(user.email, user.verifyCode)
 
 	res.redirect("/")
+
+})
+
+app.post('/labnew', checkAuthenticated, async (req, res) => {
+
+	var user = null;
+
+	if (req.session.passport) {
+
+		if (req.session.passport.user) user = await findUserById(req.session.passport.user)
+
+	}
+
+	if (user != null) updateLastSeen(user.id)
+
+	let existing = await db.get(`SELECT * FROM openings WHERE userId = ${user.id} AND name LIKE ?`, req.body.name)
+	if(existing) {
+		res.redirect("/labnew?error=1")
+		return;
+	} else {
+		let nextIdSQL = await db.get(`SELECT seq FROM sqlite_sequence WHERE name="openings";`)
+		let nextId = nextIdSQL.seq + 1
+		db.run(`INSERT INTO openings (id, name, shared, userId, active) VALUES (?, ?, ?, ?, ?)`, [nextId, req.body.name, 0, user.id, 1])
+		res.redirect("/labedit?opening=" + nextId)
+
+	}
+
 
 })
 
