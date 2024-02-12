@@ -61,32 +61,6 @@ blackMoves = [];%>
 <!-- Chess Script -->
 
 <script>
-  /*
-  <div style="margin-bottom: -10px;" class="alert alert-primary d-flex align-items-center" role="alert">
-      <svg class="bi flex-shrink-0 me-2" width="24" height="24" role="img" aria-label="Info:"><use xlink:href="#info-fill"/></svg>
-      <div>
-        An example alert with an icon
-      </div>
-    </div>
-    <div style="margin-bottom: -10px;" class="alert alert-success d-flex align-items-center" role="alert">
-      <svg class="bi flex-shrink-0 me-2" width="24" height="24" role="img" aria-label="Success:"><use xlink:href="#check-circle-fill"/></svg>
-      <div>
-        An example success alert with an icon
-      </div>
-    </div>
-    <div style="margin-bottom: -10px;" class="alert alert-warning d-flex align-items-center" role="alert">
-      <svg class="bi flex-shrink-0 me-2" width="24" height="24" role="img" aria-label="Warning:"><use xlink:href="#exclamation-triangle-fill"/></svg>
-      <div>
-        An example warning alert with an icon
-      </div>
-    </div>
-    <div style="margin-bottom: -10px;" class="alert alert-danger d-flex align-items-center" role="alert">
-      <svg class="bi flex-shrink-0 me-2" width="24" height="24" role="img" aria-label="Danger:"><use xlink:href="#exclamation-triangle-fill"/></svg>
-      <div>
-        An example danger alert with an icon
-      </div>
-    </div>
-  */
   function addCorrectMoveMessage(text) {
     var toAdd = document.createDocumentFragment();
     var newLi = document.createElement('li');
@@ -123,23 +97,23 @@ blackMoves = [];%>
     document.getElementById('alertsContainer').prepend(newLi)
   }
 
-  addInfoMessage('Welcome to Chess Openings! Play your first move when you\'re ready and black will respond.');
-  var openingMoves = []
-  <%for(var i = 0; i < moves.length; i++) {%>
-    openingMoves[<%=i%>] = {id: <%=moves[i].id%>, parentMoveId: <%if(moves[i].parentMoveId == null) {%>0<%}%><%=moves[i].parentMoveId%>, move: "<%=moves[i].move%>", comment: "<%=moves[i].comment%>", rank: <%=moves[i].rank%>}
-  <%}%>
-  var lastMovePlayed = -1;
-  function getBlackNextMove() {
-    var possibleMoves = []
-    for(var i = 0; i < openingMoves.length; i++) {
-      if(openingMoves[i].parentMoveId == openingMoves[lastMovePlayed].id) {
-        possibleMoves.push({id: i, move: openingMoves[i]})
-      }
-    }
-    if(possibleMoves.length == 0) return null; //end of line?
-    const random = Math.floor(Math.random() * possibleMoves.length);
-    return possibleMoves[random]
-  }
+  addInfoMessage('To start, add the opening move.');
+  // var openingMoves = []
+  // <%for(var i = 0; i < moves.length; i++) {%>
+  //   openingMoves[<%=i%>] = {id: <%=moves[i].id%>, parentMoveId: <%if(moves[i].parentMoveId == null) {%>0<%}%><%=moves[i].parentMoveId%>, move: "<%=moves[i].move%>", comment: "<%=moves[i].comment%>", rank: <%=moves[i].rank%>}
+  // <%}%>
+  // var lastMovePlayed = -1;
+  // function getBlackNextMove() {
+  //   var possibleMoves = []
+  //   for(var i = 0; i < openingMoves.length; i++) {
+  //     if(openingMoves[i].parentMoveId == openingMoves[lastMovePlayed].id) {
+  //       possibleMoves.push({id: i, move: openingMoves[i]})
+  //     }
+  //   }
+  //   if(possibleMoves.length == 0) return null; //end of line?
+  //   const random = Math.floor(Math.random() * possibleMoves.length);
+  //   return possibleMoves[random]
+  // }
   var config = {
     orientation: 'white',
     draggable: true,
@@ -247,60 +221,7 @@ blackMoves = [];%>
 
     if (move === null) return 'snapback'
 
-    var correctMove = false;
-
-    if(lastMovePlayed == - 1) {
-      for(var i = 0; i < openingMoves.length; i++) {
-        if(openingMoves[i].parentMoveId == 0) {
-          if(openingMoves[i].move != move.san) {
-            game.load(currentPosition)
-            addIncorrectMoveMessage('That\'s not the correct move.. try again!')
-            return 'snapback';
-          } else {
-            correctMove = true;
-            lastMovePlayed = i
-            addCorrectMoveMessage('That\'s right! The opening begins!\n' + openingMoves[i].comment)
-          }
-        }
-      }
-    } else {
-      for(var i = 0; i < openingMoves.length; i++) {
-        if(openingMoves[i].move == move.san) {
-          if(openingMoves[i].parentMoveId == openingMoves[lastMovePlayed].id) {
-            if(openingMoves[i].rank != 1) addNotBestMoveMessage('That is an ok move, but it\'s not the best move!\n' + openingMoves[i].comment)
-            else addCorrectMoveMessage('That\'s the best move! Well done.\n' + openingMoves[i].comment)
-            correctMove = true;
-            lastMovePlayed = i;
-          }
-        }
-      }
-    }
-
-    if(correctMove == false) {
-      
-      addIncorrectMoveMessage('That\'s not the correct move.. try again!')
-      game.load(currentPosition)
-      return 'snapback';
-
-    }
-
-    if(moveCounter == 0) tbodyRef.deleteRow(0)
-
-    moveCounter += 1;
-    var newRow = tbodyRef.insertRow();
-
-    var moveCounterCell = newRow.insertCell();
-    moveCounterCell.appendChild(document.createTextNode(moveCounter + "."))
-    
-    var whiteMoveCell = newRow.insertCell();
-    whiteMoveCell.appendChild(document.createTextNode(move.san))
-    var blackMoveCell = newRow.insertCell();
-    if(game.isGameOver()) blackMoveCell.appendChild(document.createTextNode("Game Over"))
-    else blackMoveCell.appendChild(document.createTextNode("Waiting.."))
-
-    highlightLastMove('white', source, target)
-    
-    window.setTimeout(makeRandomMove, 250)
+    // todo: add move to DB
   }
 
   function highlightLastMove(colour, source, target) {
@@ -347,28 +268,7 @@ blackMoves = [];%>
     // game over
     if (possibleMoves.length === 0) return
 
-    var randomIdx = Math.floor(Math.random() * possibleMoves.length)
-    var blackNext = getBlackNextMove();
-    if(blackNext == null) {
-      addInfoMessage('That\'s the end of this opening line study.')
-      return;
-    }
-    var blackNextMove = blackNext.move;
-    if(blackNextMove.comment) addInfoMessage(blackNextMove.comment)
-    var blackNextId = blackNext.id;
-    var move = blackNextMove.move;
-    var moveMade = game.move(move)
-    lastMovePlayed = blackNextId;
-
-    var rows = tbodyRef.getElementsByTagName("tr");
-    var lastRow = rows[rows.length - 1];
-    var blackMoveCell = lastRow.cells[lastRow.cells.length - 1]
-    blackMoveCell.removeChild(blackMoveCell.firstChild)
-    blackMoveCell.appendChild(document.createTextNode(move))
-    highlightLastMove('black', moveMade.from, moveMade.to)
-
-    // update the board to the new position
-    board.position(game.fen())
+    // todo: flip board for black move
   }
 
   function onDragStart(source, piece, position, orientation) {

@@ -351,10 +351,15 @@ app.get('/lab', checkAuthenticated, async (req, res) => {
 			return;
 		}
 
+		var moves = null;
+		moves = await db.all(`SELECT * FROM moves WHERE openingId = ?`, [selectedOpening])
+
 		res.render('labedit', {
 			user: user,
 			unread: unread,
-			userOpenings: userOpenings
+			userOpenings: userOpenings,
+			opening: opening,
+			moves: moves
 		})
 	}
 })
@@ -423,44 +428,6 @@ app.get('/labnew', checkAuthenticated, async (req, res) => {
 
 })
 
-app.get('/labedit', checkAuthenticated, async (req, res) => {
-	var user = null;
-	if (req.session.passport) {
-		if (req.session.passport.user) user = await findUserById(req.session.passport.user)
-	}
-
-	if (user != null) updateLastSeen(user.id)
-
-	let unread = await getUnreadMessagesCount(user.id)
-
-	let error = req.query.error;
-	let opening = req.query.opening;
-	if(opening == null) {
-		res.redirect('/lab?error=10');
-		return;
-	}
-
-	let openingSQL = db.get(`SELECT * FROM openings WHERE id=?`, [opening]);
-
-	if(openingSQL == null) {
-		res.redirect('/lab?error=10');
-		return;
-	}
-
-	let movesSQL = db.all(`SELECT * FROM moves WHERE openingId=?`, [opening])
-
-	
-
-	res.render('labedit', {
-		user: user,
-		unread: unread,
-		error: error,
-		opening: openingSQL,
-		existingMoves: movesSQL
-	})
-
-})
-
 app.get('/openingselection', checkAuthenticated, async (req, res) => {
 	var user = null;
 	if (req.session.passport) {
@@ -469,6 +436,11 @@ app.get('/openingselection', checkAuthenticated, async (req, res) => {
 	if (user != null) updateLastSeen(user.id)
 	
 	let unread = await getUnreadMessagesCount(user.id)
+	let error = req.query.error;
+	let errorText = null
+	if(error != null) {
+		if(error == 3) errorText = "This opening has no moves, please use the opening lab to start adding some."
+	}
 
 	// Separate objects so its easier to organise them into lists, rather than using the html to sort
 	let siteOpenings = await db.all("SELECT * FROM openings WHERE active = 1 AND shared = 1")
@@ -477,6 +449,7 @@ app.get('/openingselection', checkAuthenticated, async (req, res) => {
 	res.render('openingselection', {
 		user: user,
 		unread: unread,
+		error: errorText,
 		siteOpenings: siteOpenings,
 		userOpenings: userOpenings
 	})
@@ -790,7 +763,7 @@ app.post('/labnew', checkAuthenticated, async (req, res) => {
 		let nextIdSQL = await db.get(`SELECT seq FROM sqlite_sequence WHERE name="openings";`)
 		let nextId = nextIdSQL.seq + 1
 		db.run(`INSERT INTO openings (id, name, shared, userId, active) VALUES (?, ?, ?, ?, ?)`, [nextId, req.body.name, 0, user.id, 1])
-		res.redirect("/labedit?opening=" + nextId)
+		res.redirect("/lab?opening=" + nextId)
 
 	}
 
