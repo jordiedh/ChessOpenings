@@ -1,2 +1,7 @@
 <h1>Chess Openings</h1>
-Code belongs to Jordan Harrison and is only posted on Github to demonstrate my ability as a tool for my portfolio.
+<b>Live Demo:</b> chess.jordanharrisondev.com
+Designed by Jordie.
+Mainly using Chessboard.js and Chess.js, although heavily modified for my preference.
+
+Feel free to contact me with any inquiries, you can find my contact at
+http://jordanharrisondev.com as well as other projects and information about myself.
