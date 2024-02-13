@@ -1,6 +1,6 @@
 <h1>Chess Openings</h1>
 
-<b>Live Demo:</b> http://chess.jordanharrisondev.com
+<b>Live Demo:</b> Not live yet.
 
 Designed by Jordie.
 
