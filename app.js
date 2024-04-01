@@ -344,17 +344,23 @@ app.get('/lab', checkAuthenticated, async (req, res) => {
 			res.redirect('/openingselection?error=1');
 			return;
 		}
-
+		console.log(opening.shared == 1 && user.permissionLevel < 100)
+		console.log(opening.userId != user.id)
 		// If the opening doesn't belong to the user (or is public and user is not admin), error!
-		if ((opening.shared == 1 && user.permissionLevel < 100) || opening.userId != user.id) {
+		if ((opening.shared == 1 && user.permissionLevel < 100) || (opening.shared == 0 && opening.userId != user.id)) {
 			res.redirect('/openingselection?error=2');
 			return;
 		}
 
+		var moves = null;
+		moves = await db.all(`SELECT * FROM moves WHERE openingId = ?`, [selectedOpening])
+
 		res.render('labedit', {
 			user: user,
 			unread: unread,
-			userOpenings: userOpenings
+			userOpenings: userOpenings,
+			opening: opening,
+			moves: moves
 		})
 	}
 })
@@ -392,13 +398,34 @@ app.get('/practice', checkAuthenticated, async (req, res) => {
 		res.redirect("/openingselection?error=3")
 		return;
 	}
-
+	console.log('we renderin')
+	console.log(opening)
 	res.render('practice', {
 		Chess: Chess,
 		user: user,
 		unread: unread,
 		opening: opening,
 		moves: moves
+	})
+
+})
+
+app.get('/labnew', checkAuthenticated, async (req, res) => {
+	var user = null;
+	if (req.session.passport) {
+		if (req.session.passport.user) user = await findUserById(req.session.passport.user)
+	}
+
+	if (user != null) updateLastSeen(user.id)
+
+	let unread = await getUnreadMessagesCount(user.id)
+
+	let error = req.query.error;
+
+	res.render('labnew', {
+		user: user,
+		unread: unread,
+		error: error
 	})
 
 })
@@ -411,6 +438,11 @@ app.get('/openingselection', checkAuthenticated, async (req, res) => {
 	if (user != null) updateLastSeen(user.id)
 	
 	let unread = await getUnreadMessagesCount(user.id)
+	let error = req.query.error;
+	let errorText = null
+	if(error != null) {
+		if(error == 3) errorText = "This opening has no moves, please use the opening lab to start adding some."
+	}
 
 	// Separate objects so its easier to organise them into lists, rather than using the html to sort
 	let siteOpenings = await db.all("SELECT * FROM openings WHERE active = 1 AND shared = 1")
@@ -419,6 +451,7 @@ app.get('/openingselection', checkAuthenticated, async (req, res) => {
 	res.render('openingselection', {
 		user: user,
 		unread: unread,
+		error: errorText,
 		siteOpenings: siteOpenings,
 		userOpenings: userOpenings
 	})
@@ -632,6 +665,8 @@ app.get('/contact', async (req, res) => {
 
 
 
+
+
 app.post('/contact', checkAuthenticated, async (req, res) => {
 
 	var user = null;
@@ -692,7 +727,7 @@ app.post('/reply', checkAuthenticated, async (req, res) => {
 
 })
 
-app.post('/sendverify', async (req, res) => {
+app.post('/sendverify', checkAuthenticated, async (req, res) => {
 
 	var user = null;
 
@@ -707,6 +742,33 @@ app.post('/sendverify', async (req, res) => {
 	sendActivationLink(user.email, user.verifyCode)
 
 	res.redirect("/")
+
+})
+
+app.post('/labnew', checkAuthenticated, async (req, res) => {
+
+	var user = null;
+
+	if (req.session.passport) {
+
+		if (req.session.passport.user) user = await findUserById(req.session.passport.user)
+
+	}
+
+	if (user != null) updateLastSeen(user.id)
+
+	let existing = await db.get(`SELECT * FROM openings WHERE userId = ${user.id} AND name LIKE ?`, req.body.name)
+	if(existing) {
+		res.redirect("/labnew?error=1")
+		return;
+	} else {
+		let nextIdSQL = await db.get(`SELECT seq FROM sqlite_sequence WHERE name="openings";`)
+		let nextId = nextIdSQL.seq + 1
+		db.run(`INSERT INTO openings (id, name, shared, userId, active, orientation) VALUES (?, ?, ?, ?, ?, ?)`, [nextId, req.body.name, 0, user.id, , 'white'])
+		res.redirect("/lab?opening=" + nextId)
+
+	}
+
 
 })
 

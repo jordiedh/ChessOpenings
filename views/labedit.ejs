@@ -1,0 +1,388 @@
+<%- include('../views/header', {user: user}); %>
+<%- include('../views/chess'); %>
+
+<% whiteMoves = [];
+blackMoves = [];%>
+
+<style type="text/css">
+  img {
+    z-index: 1000
+  }
+
+  .highlight-white {
+    background-color: #d6b483
+  }
+
+  .highlight-black {
+    filter: brightness(50%);
+  }
+</style>
+<div style="display: flex; margin-top: 25px; width: 100%; justify-content: space-evenly; flex-wrap: wrap; flex-shrink: -1;">
+  <div style="float: left; width: 15%;">
+    <table class="table fixed table-dark table-borderless" id="movesTable" style="margin-top: 56px;width: 300px; margin-left:10px; margin-right: 20px; max-height: 600px; overflow-y: scroll; display: block; ">
+      <thead>
+        <tr><td align="center">Moves List</td></tr>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
+  </div>
+  <div style="float: left; text-align: center; width: 35%">
+    <h1 style="color: white"><%= opening.name%></h1>
+    <div id="myBoard" style="width: 100%;"></div>
+      <!-- <div class="alert alert-primary" role="alert" style="width: 600px; margin-top: 25px;">
+        Did you know you can customise the board & other settings? Check out <a href="/preferences" class="alert-link">Preferences</a> to change your settings.
+      </div> -->
+  </div>
+  <div style="float: left; width: 30%; padding-top: 35px;" id="alertsContainer">
+    <svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+      <symbol id="check-circle-fill" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+      </symbol>
+      <symbol id="info-fill" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm.93-9.412-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.47l-.451-.081.082-.381 2.29-.287zM8 5.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
+      </symbol>
+      <symbol id="exclamation-triangle-fill" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+      </symbol>
+    </svg>
+    
+    
+  </div>
+</div>
+
+
+
+
+
+
+
+<!-- Chess Script -->
+
+<script>
+  var tbodyRef = document.getElementById('movesTable').getElementsByTagName('tbody')[0];
+  function addCorrectMoveMessage(text) {
+    var toAdd = document.createDocumentFragment();
+    var newLi = document.createElement('li');
+    newLi.className = 'item'
+    newLi.id = 'correct'
+    newLi.innerHTML = '<div style="margin-bottom: -10px;" class="alert alert-success d-flex align-items-center" role="alert"><svg class="bi flex-shrink-0 me-2" width="24" height="24" role="img" aria-label="Success:"><use xlink:href="#check-circle-fill"/></svg><div>' + text + '</div></div>'
+    document.getElementById('alertsContainer').prepend(newLi)
+  }
+
+  function addIncorrectMoveMessage(text) {
+    var toAdd = document.createDocumentFragment();
+    var newLi = document.createElement('li');
+    newLi.className = 'item'
+    newLi.id = 'incorrect'
+    newLi.innerHTML = '<div style="margin-bottom: -10px;" class="alert alert-danger d-flex align-items-center" role="alert"><svg class="bi flex-shrink-0 me-2" width="24" height="24" role="img" aria-label="Danger:"><use xlink:href="#exclamation-triangle-fill"/></svg><div>' + text + '</div></div>'
+    document.getElementById('alertsContainer').prepend(newLi)
+  }
+
+  function addNotBestMoveMessage(text) {
+    var toAdd = document.createDocumentFragment();
+    var newLi = document.createElement('li');
+    newLi.className = 'item'
+    newLi.id = 'notbest'
+    newLi.innerHTML = '<div style="margin-bottom: -10px;" class="alert alert-warning d-flex align-items-center" role="alert"><svg class="bi flex-shrink-0 me-2" width="24" height="24" role="img" aria-label="Warning:"><use xlink:href="#exclamation-triangle-fill"/></svg><div>' + text + '</div></div>'
+    document.getElementById('alertsContainer').prepend(newLi)
+  }
+
+  function addInfoMessage(text) {
+    var toAdd = document.createDocumentFragment();
+    var newLi = document.createElement('li');
+    newLi.className = 'item'
+    newLi.id = 'info'
+    newLi.innerHTML = '<div style="margin-bottom: -10px;" class="alert alert-primary d-flex align-items-center" role="alert"><svg class="bi flex-shrink-0 me-2" width="24" height="24" role="img" aria-label="Info:"><use xlink:href="#info-fill"/></svg><div>' + text + '</div></div>'
+    document.getElementById('alertsContainer').prepend(newLi)
+  }
+
+  var openingMoves = [];
+  <%for(var i = 0; i < moves.length; i++) {%>
+    openingMoves[<%=i%>] = {id: <%=moves[i].id%>, parentMoveId: <%if(moves[i].parentMoveId == null) {%>0<%}%><%=moves[i].parentMoveId%>, move: "<%=moves[i].move%>", comment: "<%=moves[i].comment%>", rank: <%=moves[i].rank%>}
+  <%}%>
+  var addedMoves = [];
+
+  function getMovesFromCurrentLine(moveId) {
+    let currentMoves = [];
+    let move = null;
+    for(let i = 0; i < openingMoves.length; i++) {
+      const currentMove = openingMoves[i];
+      if(currentMove.id === moveId) move = currentMove;
+    }
+    if(move === null) return move;
+    for(let i = 0; i < openingMoves.length; i++) {
+      const currentMove = openingMoves[i];
+      if(currentMove.parentMoveId === move.parentMoveId) currentMoves.push(currentMove);
+    }
+    return currentMoves;
+  }
+
+  function getDirectChildrenMoves(moveId) {
+    let childrenMoves = []
+    for(let i = 0; i < openingMoves.length; i++) {
+      const currentMove = openingMoves[i];
+      if(currentMove.parentMoveId === moveId) childrenMoves.push(currentMove);
+    }
+    return childrenMoves;
+  }
+
+  function getAllChildrenMoves(moveId) {
+    let childrenMoves = [];
+    let parentMovesIds = [moveId];
+    for(let i = 0; i < openingMoves.length; i++) {
+      const currentMove = openingMoves[i];
+      if(parentMovesIds.indexOf(currentMove.parentMoveId) !== -1) {
+        childrenMoves.push(currentMove);
+        parentMovesIds.push(currentMove.id);
+      }
+    }
+    return childrenMoves;
+  }
+
+  function populateMovesTable() {
+    let i = 0;
+    let whitesMove = true;
+    let endOfSingleMoves = false;
+    let currentRow = null;
+    let moveCounter = 1;
+    while(i < openingMoves.length && !endOfSingleMoves) {
+      const currentMove = openingMoves[i];
+      let currentLineMoves = getMovesFromCurrentLine(currentMove.id);
+      if(currentLineMoves.length == 1) {
+        if(whitesMove) {
+          currentRow = tbodyRef.insertRow()
+          const moveCounterCell = currentRow.insertCell();
+          moveCounterCell.appendChild(document.createTextNode(moveCounter + "."));
+          moveCounter++;
+          const whiteMoveCell = currentRow.insertCell();
+          whiteMoveCell.appendChild(document.createTextNode(currentMove.move));
+          whitesMove = false;
+        } else {
+          const blackMoveCell = currentRow.insertCell();
+          blackMoveCell.appendChild(document.createTextNode(currentMove.move));
+          whitesMove = true;
+        }
+        i++;
+      } else {
+        currentRow = tbodyRef.insertRow()
+        const variationCell = currentRow.insertCell();
+        variationCell.appendChild(document.createTextNode("Variations"))
+        currentRow = tbodyRef.insertRow()
+        let movesNotation = [];
+        for(let j = 0; j < currentLineMoves.length; j++) {
+          movesNotation.push(currentLineMoves[j].move);
+        }
+        if(whitesMove) {
+          for(let k = 0; k < movesNotation.length; k++) {
+            const whiteMoveCell = currentRow.insertCell();
+            whiteMoveCell.appendChild(document.createTextNode(movesNotation[k]));
+          }
+        } else {
+          for(let k = 0; k < movesNotation.length; k++) {
+            const whiteMoveCell = currentRow.insertCell();
+            whiteMoveCell.appendChild(document.createTextNode(movesNotation[k]));
+          }
+        }
+        whitesMove = !whitesMove;
+        endOfSingleMoves = true;
+      }
+    }
+    // if(moveCounter == 0) tbodyRef.deleteRow(0)
+
+    // moveCounter += 1;
+    // var newRow = tbodyRef.insertRow();
+
+    // var moveCounterCell = newRow.insertCell();
+    // moveCounterCell.appendChild(document.createTextNode(moveCounter + "."))
+    
+    // var whiteMoveCell = newRow.insertCell();
+    // whiteMoveCell.appendChild(document.createTextNode(move.san))
+    // var blackMoveCell = newRow.insertCell();
+    // if(game.isGameOver()) blackMoveCell.appendChild(document.createTextNode("Game Over"))
+    // else blackMoveCell.appendChild(document.createTextNode("Waiting.."))
+  }
+  populateMovesTable();
+
+  if(openingMoves.length == 0) addInfoMessage('To start, add the opening move.');
+  else addInfoMessage('This opening already has moves, nice! Click one on the left to edit from that point.');
+  
+  var config = {
+    orientation: '<%=opening.orientation%>',
+    draggable: true,
+    position: 'start',
+    onDragStart: onDragStart,
+    onDrop: onDrop,
+    onSnapEnd: onSnapEnd,
+    onMoveEnd: onMoveEnd,
+    showNotation: true,
+    pieceTheme: 'img/pieceThemes/default/{piece}.png'
+  }
+  var board = Chessboard('myBoard', config)
+  var $board = $('#myBoard')
+  var game = new Chess()
+  var squareToHighlight = null
+  var squareClass = 'square-55d63'
+  var whiteSquareGrey = '#a9a9a9'
+  var blackSquareGrey = '#696969'
+  var whiteSquareHighlightWhite = '#b8e3bb'
+  var blackSquareHighlightWhite = '#78b082'
+  var whiteSquareHighlightBlack = '#dea6d1'
+  var blackSquareHighlightBlack = '#a37699'
+  var whiteHighlight1 = "";
+  var whiteHighlight2 = "";
+  var blackHighlight1 = "";
+  var blackHighlight2 = "";
+  var moveCounter = 0;
+  var currentMove = 1;
+
+  function removeHighlights(colour) {
+    var $square1 = $('#myBoard .square-' + whiteHighlight1)
+    var $square2 = $('#myBoard .square-' + whiteHighlight2)
+    if(colour == 'black') {
+      $square1 = $('#myBoard .square-' + blackHighlight1)
+      $square2 = $('#myBoard .square-' + blackHighlight2)
+    }
+    $square1.css('background', '')
+    $square2.css('background', '')
+  }
+
+
+  var gameOver = game.isGameOver()
+
+  function onDrop(source, target) {
+
+    if (source == target) {
+      board.position(game.fen());
+      return;
+    }
+
+    var currentPosition = game.fen()
+
+    // see if the move is legal
+    try {
+      var move = game.move({
+        from: source,
+        to: target,
+        promotion: 'q' // NOTE: always promote to a queen for example simplicity
+      })
+      
+    } catch {
+      //addIncorrectMoveMessage('That\'s an invalid move.')
+      return 'snapback'
+    }
+
+    if (move === null) return 'snapback'
+
+    board.orientation = 'black';
+    currentMove++;
+  }
+
+  function highlightLastMove(colour, source, target) {
+    removeHighlights(colour)
+    var $sourceSquare = $('#myBoard .square-' + source)
+    var $targetSquare = $('#myBoard .square-' + target)
+    var sourceBackground = whiteSquareHighlightWhite
+    var targetBackground = whiteSquareHighlightWhite
+    if ($sourceSquare.hasClass('black-3c85d')) {
+      sourceBackground = blackSquareHighlightWhite
+    }
+    if ($targetSquare.hasClass('black-3c85d')) {
+      targetBackground = blackSquareHighlightWhite
+    }
+    if(colour == 'white') {
+      whiteHighlight1 = source;
+      whiteHighlight2 = target;
+  
+    } else {
+
+      var sourceBackground = whiteSquareHighlightBlack
+    var targetBackground = whiteSquareHighlightBlack
+    if ($sourceSquare.hasClass('black-3c85d')) {
+      sourceBackground = blackSquareHighlightBlack
+    }
+    if ($targetSquare.hasClass('black-3c85d')) {
+      targetBackground = blackSquareHighlightBlack
+    }
+      
+      blackHighlight1 = source;
+      blackHighlight2 = target;
+
+    }
+
+    $sourceSquare.css('background', sourceBackground)
+    $targetSquare.css('background', targetBackground)
+  }
+
+  function makeRandomMove() {
+    var possibleMoves = game.moves({
+      verbose: true
+    })
+
+    // game over
+    if (possibleMoves.length === 0) return
+
+    // todo: flip board for black move  
+  }
+
+  function onDragStart(source, piece, position, orientation) {
+    // do not pick up pieces if the game is over
+    if (game.isGameOver()) {
+      return false
+    }
+
+    // only pick up pieces for the side to move
+    console.log(getCurrentRegex())
+    if (piece.search(getCurrentRegex()) === -1) return false
+  }
+
+  function getCurrentRegex() {
+    if(game.turn() == 'b') return /^b/;
+    return /^w/;
+  }
+
+  function onMoveEnd() {
+    $board.find('.square-' + squareToHighlight)
+      .addClass('highlight-black')
+  }
+
+  // update the board position after the piece snap
+  // for castling, en passant, pawn promotion
+  function onSnapEnd() {
+    board.position(game.fen())
+  }
+
+  function updateStatus() {
+    var status = ''
+
+    var moveColor = 'White'
+    if (game.turn() === 'b') {
+      moveColor = 'Black'
+    }
+
+    // checkmate?
+    if (game.isCheckmate()) {
+      status = 'Game over, ' + moveColor + ' is in checkmate.'
+    }
+
+    // draw?
+    else if (game.isDraw()) {
+      status = 'Game over, drawn position'
+    }
+
+    // game still on
+    else {
+      status = moveColor + ' to move'
+
+      // check?
+      if (game.isCheck()) {
+        status += ', ' + moveColor + ' is in check'
+      }
+    }
+  }
+</script>
+
+
+</body>
+
+</html>

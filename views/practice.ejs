@@ -87,7 +87,9 @@ blackMoves = [];%>
       </div>
     </div>
   */
+ let endOfStudy = false;
   function addCorrectMoveMessage(text) {
+
     var toAdd = document.createDocumentFragment();
     var newLi = document.createElement('li');
     newLi.className = 'item'
@@ -131,25 +133,45 @@ blackMoves = [];%>
   var lastMovePlayed = -1;
   function getBlackNextMove() {
     var possibleMoves = []
-    for(var i = 0; i < openingMoves.length; i++) {
-      if(openingMoves[i].parentMoveId == openingMoves[lastMovePlayed].id) {
-        possibleMoves.push({id: i, move: openingMoves[i]})
+    if(lastMovePlayed == -1) {
+      for(var i = 0; i < openingMoves.length; i++) {
+        if(openingMoves[i].parentMoveId == null || openingMoves[i].parentMoveId === 0) {
+          possibleMoves.push({id: i, move: openingMoves[i]})
+        }
+      }
+    } else {
+      for(let i = 0; i < openingMoves.length; i++) {
+          if(openingMoves[i].parentMoveId == lastMovePlayed) {
+            possibleMoves.push({id: i, move: openingMoves[i]})
+          }
       }
     }
+    console.log("Last move played is " + lastMovePlayed)
     if(possibleMoves.length == 0) return null; //end of line?
+    if(possibleMoves.length > 1) addInfoMessage("This move has multiple possibilities, click HERE to see other options.")
     const random = Math.floor(Math.random() * possibleMoves.length);
-    return possibleMoves[random]
+    let movesFound = false;
+    const randomMove = possibleMoves[random];
+    const latestID = randomMove.move.id;
+    for(let k = 0; k < openingMoves.length; k++) {
+      if(openingMoves[k].parentMoveId == latestID) movesFound = true;
+    }
+    if(!movesFound) {
+      addInfoMessage('That\'s the end of this opening line study.')
+      endOfStudy = true;
+    }
+    console.log("Random move picked, " + randomMove.move.move + ". ID is " + randomMove.move.id + ", parent ID is " + randomMove.move.parentMoveId)
+    return randomMove;
   }
+  const orientation = '<%=opening.orientation%>';
   var config = {
-    orientation: 'white',
+    orientation: orientation,
     draggable: true,
     position: 'start',
     onDragStart: onDragStart,
     onDrop: onDrop,
     onSnapEnd: onSnapEnd,
     onMoveEnd: onMoveEnd,
-    onMouseoutSquare: onMouseoutSquare,
-    onMouseoverSquare: onMouseoverSquare,
     showNotation: true,
     pieceTheme: 'img/pieceThemes/default/{piece}.png'
   }
@@ -171,10 +193,6 @@ blackMoves = [];%>
   var moveCounter = 0;
   var tbodyRef = document.getElementById('movesTable').getElementsByTagName('tbody')[0];
 
-  function removeGreySquares() {
-    $('#myBoard .square-55d63').css('background', '')
-  }
-
   function removeHighlights(colour) {
     var $square1 = $('#myBoard .square-' + whiteHighlight1)
     var $square2 = $('#myBoard .square-' + whiteHighlight2)
@@ -186,42 +204,10 @@ blackMoves = [];%>
     $square2.css('background', '')
   }
 
-  function greySquare(square) {
-    var $square = $('#myBoard .square-' + square)
-
-    var background = whiteSquareGrey
-    if ($square.hasClass('black-3c85d')) {
-      background = blackSquareGrey
-    }
-
-    $square.css('background', background)
-  }
-
-  function onMouseoverSquare(square, piece) {
-    // get list of possible moves for this square
-    var moves = game.moves({
-      square: square,
-      verbose: true
-    })
-
-    // exit if there are no moves available for this square
-    if (moves.length === 0) return
-
-    // highlight the square they moused over
-    //greySquare(square)
-
-    // highlight the possible squares for this piece
-    //for (var i = 0; i < moves.length; i++) {
-      //greySquare(moves[i].to)
-    //}
-  }
-
-  function onMouseoutSquare(square, piece) {
-    //removeGreySquares()
-  }
-
 
   var gameOver = game.isGameOver()
+
+  if(orientation === 'black') window.setTimeout(makeRandomMove, 250)
 
   function onDrop(source, target) {
 
@@ -241,15 +227,16 @@ blackMoves = [];%>
       })
       
     } catch {
-      addIncorrectMoveMessage('That\'s an invalid move.')
+      //addIncorrectMoveMessage('That\'s an invalid move.')
       return 'snapback'
     }
 
     if (move === null) return 'snapback'
 
     var correctMove = false;
+    let movesFound = false;
 
-    if(lastMovePlayed == - 1) {
+    if(lastMovePlayed == -1) {
       for(var i = 0; i < openingMoves.length; i++) {
         if(openingMoves[i].parentMoveId == 0) {
           if(openingMoves[i].move != move.san) {
@@ -258,19 +245,19 @@ blackMoves = [];%>
             return 'snapback';
           } else {
             correctMove = true;
-            lastMovePlayed = i
+            lastMovePlayed = openingMoves[i].id
             addCorrectMoveMessage('That\'s right! The opening begins!\n' + openingMoves[i].comment)
           }
         }
       }
     } else {
-      for(var i = 0; i < openingMoves.length; i++) {
+      for(let i = 0; i < openingMoves.length; i++) {
         if(openingMoves[i].move == move.san) {
-          if(openingMoves[i].parentMoveId == openingMoves[lastMovePlayed].id) {
+          if(openingMoves[i].parentMoveId == lastMovePlayed) {
             if(openingMoves[i].rank != 1) addNotBestMoveMessage('That is an ok move, but it\'s not the best move!\n' + openingMoves[i].comment)
             else addCorrectMoveMessage('That\'s the best move! Well done.\n' + openingMoves[i].comment)
             correctMove = true;
-            lastMovePlayed = i;
+            lastMovePlayed = openingMoves[i].id;
           }
         }
       }
@@ -298,9 +285,9 @@ blackMoves = [];%>
     if(game.isGameOver()) blackMoveCell.appendChild(document.createTextNode("Game Over"))
     else blackMoveCell.appendChild(document.createTextNode("Waiting.."))
 
-    highlightLastMove('white', source, target)
+    highlightLastMove(orientation, source, target)
     
-    window.setTimeout(makeRandomMove, 250)
+    window.setTimeout(makeRandomMove, 500)
   }
 
   function highlightLastMove(colour, source, target) {
@@ -351,11 +338,12 @@ blackMoves = [];%>
     var blackNext = getBlackNextMove();
     if(blackNext == null) {
       addInfoMessage('That\'s the end of this opening line study.')
+      endOfStudy = true;
       return;
     }
     var blackNextMove = blackNext.move;
     if(blackNextMove.comment) addInfoMessage(blackNextMove.comment)
-    var blackNextId = blackNext.id;
+    var blackNextId = blackNextMove.id;
     var move = blackNextMove.move;
     var moveMade = game.move(move)
     lastMovePlayed = blackNextId;
@@ -373,12 +361,15 @@ blackMoves = [];%>
 
   function onDragStart(source, piece, position, orientation) {
     // do not pick up pieces if the game is over
-    if (game.isGameOver()) {
+    if (game.isGameOver() || endOfStudy) {
+      addInfoMessage('That\'s the end of this opening line study.')
       return false
     }
 
     // only pick up pieces for the side to move
-    if (piece.search(/^b/) !== -1) return false
+    let regex = /^b/;
+    if(orientation === 'black') regex = /^w/;
+    if (piece.search(regex) !== -1) return false
   }
 
   function onMoveEnd() {
