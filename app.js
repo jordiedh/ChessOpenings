@@ -344,9 +344,10 @@ app.get('/lab', checkAuthenticated, async (req, res) => {
 			res.redirect('/openingselection?error=1');
 			return;
 		}
-
+		console.log(opening.shared == 1 && user.permissionLevel < 100)
+		console.log(opening.userId != user.id)
 		// If the opening doesn't belong to the user (or is public and user is not admin), error!
-		if ((opening.shared == 1 && user.permissionLevel < 100) || opening.userId != user.id) {
+		if ((opening.shared == 1 && user.permissionLevel < 100) || (opening.shared == 0 && opening.userId != user.id)) {
 			res.redirect('/openingselection?error=2');
 			return;
 		}
@@ -397,7 +398,8 @@ app.get('/practice', checkAuthenticated, async (req, res) => {
 		res.redirect("/openingselection?error=3")
 		return;
 	}
-
+	console.log('we renderin')
+	console.log(opening)
 	res.render('practice', {
 		Chess: Chess,
 		user: user,
@@ -762,7 +764,7 @@ app.post('/labnew', checkAuthenticated, async (req, res) => {
 	} else {
 		let nextIdSQL = await db.get(`SELECT seq FROM sqlite_sequence WHERE name="openings";`)
 		let nextId = nextIdSQL.seq + 1
-		db.run(`INSERT INTO openings (id, name, shared, userId, active) VALUES (?, ?, ?, ?, ?)`, [nextId, req.body.name, 0, user.id, 1])
+		db.run(`INSERT INTO openings (id, name, shared, userId, active, orientation) VALUES (?, ?, ?, ?, ?, ?)`, [nextId, req.body.name, 0, user.id, , 'white'])
 		res.redirect("/lab?opening=" + nextId)
 
 	}
