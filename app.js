@@ -153,6 +153,7 @@ app.use(bodyParser.urlencoded({
 app.use(flash()) // Session storage
 app.use(passport.initialize()) // Login storage
 app.use(methodOverride('_method')) // Delete method for posting the logout method
+console.log(process.env.SESSION_SECRET)
 app.use(cookieParser(process.env.SESSION_SECRET))
 app.use(session({
 	resave: false,
