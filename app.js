@@ -895,6 +895,33 @@ app.post('/login', checkNotAuthenticated, passport.authenticate('local', {
 
 }))
 
+// 404 page not found
+app.get('*', async (req, res) => {
+
+	var user = null;
+
+	if (req.session.passport) {
+
+		if (req.session.passport.user) user = await findUserById(req.session.passport.user)
+
+	}
+
+	if (user != null) updateLastSeen(user.id)
+
+	let unread = 0;
+
+	if (user != null) {
+		updateLastSeen(user.id)
+		unread = await getUnreadMessagesCount(user.id)
+	}
+
+	res.render('404', {
+		user: user,
+		unread: unread
+	});
+	return;
+})
+
 // This function can be passed for routing to only allow logged in users to access the page
 async function checkAuthenticated(req, res, next) {
 
